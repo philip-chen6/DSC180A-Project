@@ -1,0 +1,25 @@
+# Generated results; retain the output directory.
+results/*
+!results/.gitkeep
+
+# Model weights and caches.
+models/
+checkpoints/
+.cache/
+.huggingface/
+*.safetensors
+*.bin
+*.pt
+*.pth
+*.ckpt
+
+# Python environments and generated files.
+.venv/
+venv/
+env/
+__pycache__/
+*.py[cod]
+.pytest_cache/
+
+# macOS metadata.
+.DS_Store
