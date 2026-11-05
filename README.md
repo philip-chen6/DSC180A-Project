@@ -13,12 +13,13 @@ baseline. RL training comes later.
 - Planned official hardware: one RTX 5070, 12 GB VRAM, Blackwell SM120.
   Teammates develop on their own NVIDIA GPUs.
 
-**Current status: skeleton only.** Data loading, prompt formatting, generation,
-rewards, result saving, and plotting are intentionally unimplemented.
+**Current status:** generation, timing, acceptance metric extraction, and a
+greedy comparison command are implemented. Data loading, prompt formatting,
+rewards, result saving, and plotting remain stubs. Real GPU validation is pending.
 
 | Owner | Files |
 | --- | --- |
-| Philip | `src/generate.py` |
+| Philip | `src/generate.py`, `src/check.py`, and their tests |
 | Person 1 | `src/metrics.py` |
 | Person 2 | `src/data.py`, `src/reward.py`, `tests/test_reward.py` |
 
@@ -32,7 +33,7 @@ source .venv/bin/activate
 python -m pip install pytest
 ```
 
-This is enough to check imports, CLI wiring, and the skipped placeholder test.
+This is enough to check imports, CLI wiring, and the CPU tests.
 No model downloads or GPU are needed for these checks.
 
 For future GPU runs, install the full dependencies:
@@ -66,14 +67,47 @@ python run.py specdec     # speculative config: load, format, generate, save
 python run.py eval        # baseline config: generate, score rewards, save accuracy
 python run.py plot        # results/results.json -> results/comparison.png
 python run.py test        # run pytest with the current Python interpreter
+python run.py check       # compare greedy baseline/specdec outputs on a GPU
 ```
 
 For now, `baseline`, `specdec`, and `eval` exit with code 1 and a
 `NotImplementedError` naming `data.load_gsm8k`. `plot` does the same for
-`metrics.plot_comparison`. `test` succeeds with one skipped placeholder; it
-does not yet validate reward behavior. Unknown targets print usage and exit
+`metrics.plot_comparison`. `test` runs mocked generation/comparison tests plus
+one skipped reward placeholder; it does not validate real model behavior.
+Unknown targets print usage and exit
 with code 2. Paths are resolved relative to the repository, so the script also
 works when called from another directory.
+
+`check` reads the raw math prompts in `config/check.json` and model settings
+from `config/specdec.json`, forces temperature 0, and compares exact completion
+strings. It bypasses the unfinished GSM8K loader and uses one child process at
+a time so baseline GPU memory is released before speculative generation starts.
+It prints `Temperature-0 correctness: X/N outputs differ.` and exits nonzero
+on a mismatch or failed run. These few prompts are a smoke check, not a GSM8K
+accuracy evaluation. This command requires a working vLLM GPU installation.
+
+Generation currently sends one prompt at a time. Each request's wall time
+includes tokenization, prefill, decoding, and output handling. Model startup and
+metric reads are excluded; there is no extra warmup, so first-call overhead is
+included. `tokens_per_sec` is total generated tokens / summed request time and
+`mean_latency_s` is the mean of those request times. This measures concurrency
+one, not batched RL rollout throughput.
+
+Acceptance uses before/after deltas from `LLM.get_metrics()` with stats enabled.
+The runtime prints its vLLM version and observed speculative metric names.
+The [official reader](https://github.com/vllm-project/vllm/blob/main/vllm/v1/metrics/reader.py)
+returns counters without the Prometheus `_total` suffix:
+
+- `vllm:spec_decode_num_drafts`
+- `vllm:spec_decode_num_draft_tokens`
+- `vllm:spec_decode_num_accepted_tokens`
+
+Following [vLLM's formulas](https://github.com/vllm-project/vllm/blob/main/vllm/v1/spec_decode/metrics.py),
+mean acceptance length is `1 + accepted / drafts` (including the bonus token),
+and acceptance rate is `accepted / draft_tokens` as a fraction. Missing metrics
+or zero denominators produce `null`. The API was checked against upstream
+source; no local vLLM installation was available to validate the installed API
+or measure an actual mismatch count. Validate and pin the team's GPU version.
 
 ## Results
 
