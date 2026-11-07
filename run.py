@@ -43,8 +43,7 @@ def main() -> int:
             )
             return 0
 
-        config_name = "specdec" if target in (
-            "specdec", "check") else "baseline"
+        config_name = "specdec" if target in ("specdec", "check") else "baseline"
         with (ROOT / "config" / f"{config_name}.json").open() as file:
             config = json.load(file)
 
@@ -59,8 +58,7 @@ def main() -> int:
         from transformers import AutoTokenizer
 
         tokenizer = AutoTokenizer.from_pretrained(config["target_model"])
-        prompts = [format_prompt(example["question"], tokenizer)
-                   for example in examples]
+        prompts = [format_prompt(example["question"], tokenizer) for example in examples]
         completions, stats = run_generation(prompts, config)
 
         if target == "eval":
