@@ -62,7 +62,7 @@ def test_correctness_count_and_configs(fake_processes, monkeypatch, capsys, spec
                         if key not in ("draft_model", "num_speculative_tokens")}
     assert speculative == dict(original, temperature=0.0, n_prompts=2)
     assert all(prompts == ["one", "two"] for prompts, _ in runs)
-    assert f"{count}/2 outputs differ" in capsys.readouterr().out
+    assert f"{count}/2 completions differ" in capsys.readouterr().out
 
 
 # Never report a successful comparison after an incomplete generation.
@@ -111,6 +111,6 @@ class LLM:
         env=environment, text=True, capture_output=True, timeout=30,
     )
     assert result.returncode == int(different), result.stdout + result.stderr
-    assert f"{3 if different else 0}/3 outputs differ" in result.stdout
+    assert f"{3 if different else 0}/3 completions differ" in result.stdout
     pids = [line for line in result.stdout.splitlines() if line.startswith("FAKE_ENGINE_PID=")]
     assert len(pids) == len(set(pids)) == 2

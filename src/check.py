@@ -69,7 +69,9 @@ def check_correctness(prompts: list[str], config: dict) -> int:
             zip(outputs["baseline"], outputs["specdec"], strict=True), start=1
         ) if baseline != specdec
     ]
-    print(f"Temperature-0 correctness: {len(different)}/{len(prompts)} outputs differ.")
+    print(
+        f"Greedy output comparison: {len(different)}/{len(prompts)} completions differ."
+    )
     if different:
         print(f"Differing prompt numbers (1-based): {different}")
     return len(different)

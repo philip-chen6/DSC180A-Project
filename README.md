@@ -13,10 +13,12 @@ baseline. RL training comes later.
 - Planned official hardware: one RTX 5070, 12 GB VRAM, Blackwell SM120.
   Teammates develop on their own NVIDIA GPUs.
 
-**Current status:** data loading, prompt formatting, rewards, generation,
-timing, acceptance metric extraction, result saving, plotting, and a greedy
-comparison command are implemented. CPU tests pass; real GPU validation on the
-full pipeline is still pending.
+**Current status:** data loading, prompt formatting, numeric rewards, baseline
+and speculative generation, timing, acceptance metric extraction, result
+saving, plotting, and a greedy output comparison command are implemented.
+Baseline accuracy evaluation is implemented; speculative accuracy evaluation is
+pending. CPU tests pass; validation of the complete pipeline on real GPU
+hardware is still pending.
 
 | Owner | Files |
 | --- | --- |
@@ -26,42 +28,44 @@ full pipeline is still pending.
 
 ## Setup
 
-Use Python 3.10 or newer. A virtual environment is recommended so project
-packages do not affect other Python projects. From the repository root, create
-and activate one using the command for your shell:
+Use Python 3.12 on the RTX 5070 machine. A virtual environment is recommended
+so project packages do not affect other Python projects. Run these commands
+from the repository root in a Linux or WSL2 terminal:
 
 ```bash
 python -m venv .venv
 source .venv/bin/activate
 python -m pip install --upgrade pip
+```
+
+For WSL2, install Ubuntu and verify GPU access from the Ubuntu terminal:
+
+```bash
+nvidia-smi
+```
+
+WSL2 uses the Windows NVIDIA driver; do not install a separate Linux NVIDIA
+driver inside the WSL2 distribution. Native Linux systems should use their
+normal NVIDIA driver and CUDA setup.
+
+The CPU-only setup is enough to run the tests and fake-data plot. Install the
+test and plotting dependencies with:
+
+```bash
 python -m pip install pytest matplotlib
 ```
 
-On Windows PowerShell, use:
-
-```powershell
-py -m venv .venv
-.\.venv\Scripts\Activate.ps1
-python -m pip install --upgrade pip
-python -m pip install pytest matplotlib
-```
-
-The CPU setup is enough to run the tests and the fake-data plot. No model
-downloads or GPU are needed for these checks. The `plot` target uses
-`results/results.json` when it exists; otherwise it automatically uses the
-committed `results/fake_data.json` fixture.
-
-For GPU runs, install the full dependencies:
+For GPU runs on native Linux or WSL2, install the pinned stack:
 
 ```bash
 python -m pip install -r requirements.txt
+python -m pip check
 ```
 
-The pinned GPU stack is intended for Linux. Native Windows does not support
-vLLM, so the vLLM line is skipped there by the platform marker. Use WSL2 with
-an NVIDIA CUDA-enabled setup, or a Linux machine, for `baseline`, `specdec`,
-`eval`, and `check`. Installing a venv does not add vLLM support to Windows;
-it only isolates packages.
+The pinned GPU stack is intended for Linux and WSL2. The `baseline`,
+`specdec`, `eval`, and `check` targets require a compatible NVIDIA GPU with
+sufficient VRAM, a working CUDA runtime, model downloads, and the pinned vLLM
+stack. Official benchmark results will be collected on the RTX 5070.
 
 ## Data
 
@@ -95,13 +99,15 @@ the completions with the numeric reward function. `test` runs the CPU test
 suite, including mocked generation/check tests and reward/data tests; it does
 not validate real model behavior.
 
-`check` reads the raw math prompts in `config/check.json` and model settings
-from `config/specdec.json`, forces temperature 0, and compares exact completion
-strings. It bypasses the unfinished GSM8K loader and uses one child process at
-a time so baseline GPU memory is released before speculative generation starts.
-It prints `Temperature-0 correctness: X/N outputs differ.` and exits nonzero
-on a mismatch or failed run. These few prompts are a smoke check, not a GSM8K
-accuracy evaluation. This command requires a working vLLM GPU installation.
+`check` reads the math prompts in `config/check.json` directly, independently
+of the GSM8K loading and prompt-formatting pipeline. It reads model settings
+from `config/specdec.json`, forces temperature 0, and compares exact
+completion strings on a small prompt set. It uses one child process at a time
+so baseline GPU memory is released before speculative generation starts. It
+prints `Greedy output comparison: X/N completions differ.` and exits nonzero
+on a mismatch or failed run. This checks agreement between the two decoding
+configurations; mathematical correctness is evaluated through the answer
+scoring pipeline. This command requires a working vLLM GPU installation.
 
 Generation currently sends one prompt at a time. Each request's wall time
 includes tokenization, prefill, decoding, and output handling. Model startup and
@@ -112,14 +118,14 @@ one, not batched RL rollout throughput.
 
 Acceptance uses before/after deltas from `LLM.get_metrics()` with stats enabled.
 The runtime prints its vLLM version and observed speculative metric names.
-The [official reader](https://github.com/vllm-project/vllm/blob/main/vllm/v1/metrics/reader.py)
+The [official reader](https://github.com/vllm-project/vllm/blob/v0.32.0/vllm/v1/metrics/reader.py)
 returns counters without the Prometheus `_total` suffix:
 
 - `vllm:spec_decode_num_drafts`
 - `vllm:spec_decode_num_draft_tokens`
 - `vllm:spec_decode_num_accepted_tokens`
 
-Following [vLLM's formulas](https://github.com/vllm-project/vllm/blob/main/vllm/v1/spec_decode/metrics.py),
+Following [vLLM's formulas](https://github.com/vllm-project/vllm/blob/v0.32.0/vllm/v1/spec_decode/metrics.py),
 mean acceptance length is `1 + accepted / drafts` (including the bonus token),
 and acceptance rate is `accepted / draft_tokens` as a fraction. Missing metrics
 or zero denominators produce `null`. The API was checked against upstream
@@ -139,4 +145,26 @@ leave accuracy as `null`; the `eval` target runs the baseline configuration and
 fills in its accuracy using the reward function. Evaluating speculative
 accuracy remains future work beyond these requested targets.
 
-The `plot` target automatically reads `results.json` and generates a dual-axis bar chart comparing tokens per second and mean acceptance length across configurations. Generated results, plots, model weights, and caches are ignored by Git; `results/.gitkeep` keeps the output directory in the repo.
+The `plot` target reads `results/results.json` when benchmark results exist.
+If that file is absent, it explicitly falls back to the committed synthetic
+fixture `results/fake_data.json` and prints a message identifying that input.
+It then generates a dual-axis bar chart comparing tokens per second and mean
+acceptance length across configurations. Generated results, plots, model
+weights, and caches are ignored by Git; `results/.gitkeep` keeps the output
+directory in the repo.
+
+## Human and AI Contributions
+
+Philip, Maggie, and Chentao developed the project's research objectives with
+guidance from Zaiyang Zhang (domain PhD student mentor) and Amirhossein
+Panahi (course TA). The authors developed the experimental plan and wrote the
+initial abstract and introduction.
+
+ChatGPT and Claude generated substantial portions of the implementation from
+requirements and prompts supplied by the authors. The authors directed
+revisions, integrated the generated code, and performed testing and review.
+AI tools also assisted with proofreading, checking technical claims, and
+LaTeX formatting.
+
+The authors take responsibility for the submitted work. `AI_USE.md` documents prompt use, affected components, verification procedures, and remaining
+validation limitations.
