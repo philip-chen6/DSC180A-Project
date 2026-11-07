@@ -22,7 +22,7 @@ full pipeline is still pending.
 | --- | --- |
 | Philip | `src/generate.py`, `src/check.py`, and their tests |
 | Maggie | `src/metrics.py` |
-| Person 2 | `src/data.py`, `src/reward.py`, `tests/test_reward.py` |
+| Chentao | `src/data.py`, `src/reward.py`, `tests/test_reward.py` |
 
 ## Setup
 
