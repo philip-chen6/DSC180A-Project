@@ -13,7 +13,10 @@ baseline. RL training comes later.
 - Planned official hardware: one RTX 5070, 12 GB VRAM, Blackwell SM120.
   Teammates develop on their own NVIDIA GPUs.
 
-**Current status:** generation, timing, acceptance metric extraction, result saving, plotting, and a greedy comparison command are implemented. Data loading, prompt formatting, and rewards remain stubs. Real GPU validation on the full pipeline is pending.
+**Current status:** data loading, prompt formatting, rewards, generation,
+timing, acceptance metric extraction, result saving, plotting, and a greedy
+comparison command are implemented. CPU tests pass; real GPU validation on the
+full pipeline is still pending.
 
 | Owner | Files |
 | --- | --- |
@@ -62,11 +65,12 @@ it only isolates packages.
 
 ## Data
 
-Use the GSM8K test split for the initial benchmark. `load_gsm8k` will select a
-reproducible sample and return `{"question": str, "answer": str}` records, with
+Use the GSM8K test split for the initial benchmark. `load_gsm8k` selects a
+reproducible sample and returns `{"question": str, "answer": str}` records, with
 the final numeric answer extracted from the dataset's `#### <number>` line.
-`format_prompt` will apply the target tokenizer's chat template and instruct
-the model to end with a numeric answer.
+`format_prompt` applies the target tokenizer's chat template and instructs the
+model to end with a numeric answer. The dataset is downloaded lazily when a
+generation or evaluation target runs.
 
 Both configs default to 200 prompts, seed 0, temperature 0.0, and 512 maximum
 output tokens. Speculative decoding defaults to 5 draft tokens. Change run
@@ -84,8 +88,12 @@ python run.py test        # run pytest with the current Python interpreter
 python run.py check       # compare greedy baseline/specdec outputs on a GPU
 ```
 
-For now, `baseline`, `specdec`, and `eval` exit with code 1 and a
-`NotImplementedError` naming `data.load_gsm8k` until data loading is finished. `test` runs mocked generation/comparison tests plus one skipped reward placeholder; it does not validate real model behavior.
+`baseline`, `specdec`, and `eval` require the full dependencies, a model
+download, and a working GPU runtime. They load GSM8K, format prompts, run
+generation, and append metrics to `results/results.json`. `eval` also scores
+the completions with the numeric reward function. `test` runs the CPU test
+suite, including mocked generation/check tests and reward/data tests; it does
+not validate real model behavior.
 
 `check` reads the raw math prompts in `config/check.json` and model settings
 from `config/specdec.json`, forces temperature 0, and compares exact completion
@@ -126,8 +134,9 @@ is documented in `src/generate.py` and `src/metrics.py`.
 
 Records contain the config label, prompt count, output tokens per second,
 mean latency in seconds, mean output length, acceptance metrics, and accuracy.
-Baseline acceptance metrics and unevaluated accuracy are `null`. The `eval`
-target saves a baseline record with accuracy filled in. Evaluating speculative
+Baseline acceptance metrics are `null`. The `baseline` and `specdec` targets
+leave accuracy as `null`; the `eval` target runs the baseline configuration and
+fills in its accuracy using the reward function. Evaluating speculative
 accuracy remains future work beyond these requested targets.
 
 The `plot` target automatically reads `results.json` and generates a dual-axis bar chart comparing tokens per second and mean acceptance length across configurations. Generated results, plots, model weights, and caches are ignored by Git; `results/.gitkeep` keeps the output directory in the repo.
