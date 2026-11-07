@@ -1,0 +1,22 @@
+[
+  {
+    "config": "baseline",
+    "n_prompts": 200,
+    "tokens_per_sec": 45.2,
+    "mean_latency_s": 4.1,
+    "mean_output_len": 185.0,
+    "mean_acceptance_length": null,
+    "acceptance_rate": null,
+    "accuracy": null
+  },
+  {
+    "config": "specdec",
+    "n_prompts": 200,
+    "tokens_per_sec": 88.5,
+    "mean_latency_s": 2.2,
+    "mean_output_len": 185.0,
+    "mean_acceptance_length": 2.8,
+    "acceptance_rate": 0.75,
+    "accuracy": null
+  }
+]

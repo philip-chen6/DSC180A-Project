@@ -1,0 +1,16 @@
+# Core ML
+torch==2.14.0
+# vLLM is not published for native Windows. Use Linux or WSL2 for GPU runs.
+vllm==0.32.0; platform_system != "Windows"
+transformers==5.22.1
+datasets==4.7.0
+
+# RL & Quantization (potentially)
+trl==1.17.1
+peft==0.16.0
+bitsandbytes==0.45.0; platform_system != "Windows"
+
+# Other
+matplotlib==3.10.0
+pytest==8.3.0
+pydantic==2.10.0
