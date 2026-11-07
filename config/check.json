@@ -1,0 +1,7 @@
+{
+  "prompts": [
+    "Solve this problem and end with the final numeric answer. What is 17 + 25?\nAnswer:",
+    "Solve this problem and end with the final numeric answer. A shop sells 3 notebooks for $4 each. How much do they cost altogether?\nAnswer:",
+    "Solve this problem and end with the final numeric answer. Maya has 24 apples, gives away 6, and divides the rest equally among 3 friends. How many apples does each friend get?\nAnswer:"
+  ]
+}

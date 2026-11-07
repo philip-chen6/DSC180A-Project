@@ -5,7 +5,6 @@ import json
 import os
 from typing import Dict, Any
 
-
 def save_results(stats: Dict[str, Any], path: str) -> None:
     """Append stats to a JSON list at path, preserving existing records."""
     os.makedirs(os.path.dirname(path), exist_ok=True)
@@ -37,8 +36,7 @@ def save_results(stats: Dict[str, Any], path: str) -> None:
         if key not in stats:
             raise KeyError(f"Missing required key '{key}' in stats.")
         if stats[key] is not None and not isinstance(stats[key], expected_type):
-            raise TypeError(
-                f"Key '{key}' should be {expected_type}, got {type(stats[key])}")
+            raise TypeError(f"Key '{key}' should be {expected_type}, got {type(stats[key])}")
 
     data.append(stats)
     with open(path, 'w') as f:
@@ -82,8 +80,7 @@ def plot_comparison(results_path: str, out_path: str) -> None:
     color_tps = 'tab:blue'
     ax1.set_xlabel('Configuration')
     ax1.set_ylabel('Tokens / Sec', color=color_tps)
-    bars1 = ax1.bar(x - width/2, tokens_per_sec, width,
-                    label='Tokens / Sec', color=color_tps)
+    bars1 = ax1.bar(x - width/2, tokens_per_sec, width, label='Tokens / Sec', color=color_tps)
     ax1.tick_params(axis='y', labelcolor=color_tps)
     ax1.set_xticks(x)
     ax1.set_xticklabels(configs)
@@ -92,8 +89,7 @@ def plot_comparison(results_path: str, out_path: str) -> None:
     ax2 = ax1.twinx()
     color_acc = 'tab:orange'
     ax2.set_ylabel('Mean Acceptance Length', color=color_acc)
-    bars2 = ax2.bar(x + width/2, acc_lengths, width,
-                    label='Mean Accept Length', color=color_acc, alpha=0.8)
+    bars2 = ax2.bar(x + width/2, acc_lengths, width, label='Mean Accept Length', color=color_acc, alpha=0.8)
     ax2.tick_params(axis='y', labelcolor=color_acc)
 
     # Add legends
