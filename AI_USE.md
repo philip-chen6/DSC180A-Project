@@ -6,7 +6,7 @@
 The authors established the initial research question, compared hardware settings, and planned experimental contributions. We supplied the writing of the introduction, relevant sources for bibliography entries, and all figures and diagrams used in the report.
 
 ### Code Drafting and Verification
-The authors provided co-drafted prompts and strict requirements for code generation to code agents (ChatGPT, Claude). 
+The authors provided co-drafted prompts and strict requirements for code generation to code agents (ChatGPT, Claude). Specific prompts expand over the following categories:
 
 - *Data Contracts*: Enforcing strict Python typing and JSON schema validation for the metrics.py pipeline.
 

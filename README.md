@@ -153,10 +153,14 @@ acceptance length across configurations. Generated results, plots, model
 weights, and caches are ignored by Git; `results/.gitkeep` keeps the output
 directory in the repo.
 
+## Known Bugs
+In `README.md` and `requirements.txt`, we specify a plan for running on a specific environment, which is integral to the main topic (limited compute for RL speculative decoding). It is possible that the given instructions do not run on all GPU setups and OS because of the specific devices the authors are attempting to run on. Broader coverage will possibly be added in future iterations if they do not obscure the focus of the project scope.
+
+There is a reward extraction bug giving credit for incorrect answers, and the metrics pipeline doesn't yet enforce the strict scheme we plan to finalize with. The current saved results do not form a complete benchmark but are demonstrative of currently working features for the checkpoint. Our realistic goal for the quarter project is to create a working MVP to build off of for next quarter. 
+
 ## Human and AI Contributions
 
-Philip, Maggie, and Chentao developed the project's research objectives with
-guidance from Zaiyang Zhang (domain PhD student mentor) and Amirhossein
+Philip, Maggie, and Chentao (the authors) developed the project's research objectives with guidance from Zaiyang Zhang (domain PhD student mentor) and Amirhossein
 Panahi (course TA). The authors developed the experimental plan and wrote the
 initial abstract and introduction.
 
