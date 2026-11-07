@@ -13,46 +13,64 @@ baseline. RL training comes later.
 - Planned official hardware: one RTX 5070, 12 GB VRAM, Blackwell SM120.
   Teammates develop on their own NVIDIA GPUs.
 
-**Current status:** generation, timing, acceptance metric extraction, and a
-greedy comparison command are implemented. Data loading, prompt formatting,
-rewards, result saving, and plotting remain stubs. Real GPU validation is pending.
+**Current status:** data loading, prompt formatting, rewards, generation,
+timing, acceptance metric extraction, result saving, plotting, and a greedy
+comparison command are implemented. CPU tests pass; real GPU validation on the
+full pipeline is still pending.
 
 | Owner | Files |
 | --- | --- |
 | Philip | `src/generate.py`, `src/check.py`, and their tests |
-| Person 1 | `src/metrics.py` |
+| Maggie | `src/metrics.py` |
 | Person 2 | `src/data.py`, `src/reward.py`, `tests/test_reward.py` |
 
 ## Setup
 
-Use Python 3.10 or newer for this skeleton. From the repository root:
+Use Python 3.10 or newer. A virtual environment is recommended so project
+packages do not affect other Python projects. From the repository root, create
+and activate one using the command for your shell:
 
 ```bash
-python3 -m venv .venv
+python -m venv .venv
 source .venv/bin/activate
-python -m pip install pytest
+python -m pip install --upgrade pip
+python -m pip install pytest matplotlib
 ```
 
-This is enough to check imports, CLI wiring, and the CPU tests.
-No model downloads or GPU are needed for these checks.
+On Windows PowerShell, use:
 
-For future GPU runs, install the full dependencies:
+```powershell
+py -m venv .venv
+.\.venv\Scripts\Activate.ps1
+python -m pip install --upgrade pip
+python -m pip install pytest matplotlib
+```
+
+The CPU setup is enough to run the tests and the fake-data plot. No model
+downloads or GPU are needed for these checks. The `plot` target uses
+`results/results.json` when it exists; otherwise it automatically uses the
+committed `results/fake_data.json` fixture.
+
+For GPU runs, install the full dependencies:
 
 ```bash
 python -m pip install -r requirements.txt
 ```
 
-TODO: validate the Python, driver, CUDA, PyTorch, and vLLM combination on the
-official GPU, then pin exact package versions in `requirements.txt`. Hardware
-compatibility and model memory usage have not been validated by this skeleton.
+The pinned GPU stack is intended for Linux. Native Windows does not support
+vLLM, so the vLLM line is skipped there by the platform marker. Use WSL2 with
+an NVIDIA CUDA-enabled setup, or a Linux machine, for `baseline`, `specdec`,
+`eval`, and `check`. Installing a venv does not add vLLM support to Windows;
+it only isolates packages.
 
 ## Data
 
-Use the GSM8K test split for the initial benchmark. `load_gsm8k` will select a
-reproducible sample and return `{"question": str, "answer": str}` records, with
+Use the GSM8K test split for the initial benchmark. `load_gsm8k` selects a
+reproducible sample and returns `{"question": str, "answer": str}` records, with
 the final numeric answer extracted from the dataset's `#### <number>` line.
-`format_prompt` will apply the target tokenizer's chat template and instruct
-the model to end with a numeric answer.
+`format_prompt` applies the target tokenizer's chat template and instructs the
+model to end with a numeric answer. The dataset is downloaded lazily when a
+generation or evaluation target runs.
 
 Both configs default to 200 prompts, seed 0, temperature 0.0, and 512 maximum
 output tokens. Speculative decoding defaults to 5 draft tokens. Change run
@@ -65,18 +83,17 @@ python run.py             # print usage
 python run.py baseline    # baseline config: load, format, generate, save
 python run.py specdec     # speculative config: load, format, generate, save
 python run.py eval        # baseline config: generate, score rewards, save accuracy
-python run.py plot        # results/results.json -> results/comparison.png
+python run.py plot        # results/results.json or fake_data.json -> comparison.png
 python run.py test        # run pytest with the current Python interpreter
 python run.py check       # compare greedy baseline/specdec outputs on a GPU
 ```
 
-For now, `baseline`, `specdec`, and `eval` exit with code 1 and a
-`NotImplementedError` naming `data.load_gsm8k`. `plot` does the same for
-`metrics.plot_comparison`. `test` runs mocked generation/comparison tests plus
-one skipped reward placeholder; it does not validate real model behavior.
-Unknown targets print usage and exit
-with code 2. Paths are resolved relative to the repository, so the script also
-works when called from another directory.
+`baseline`, `specdec`, and `eval` require the full dependencies, a model
+download, and a working GPU runtime. They load GSM8K, format prompts, run
+generation, and append metrics to `results/results.json`. `eval` also scores
+the completions with the numeric reward function. `test` runs the CPU test
+suite, including mocked generation/check tests and reward/data tests; it does
+not validate real model behavior.
 
 `check` reads the raw math prompts in `config/check.json` and model settings
 from `config/specdec.json`, forces temperature 0, and compares exact completion
@@ -111,16 +128,15 @@ or measure an actual mismatch count. Validate and pin the team's GPU version.
 
 ## Results
 
-No benchmark results yet. Future runs append records to the JSON list at
+Benchmark records are appended to the JSON list at
 `results/results.json`, as configured by `results_path`. The full record schema
 is documented in `src/generate.py` and `src/metrics.py`.
 
 Records contain the config label, prompt count, output tokens per second,
 mean latency in seconds, mean output length, acceptance metrics, and accuracy.
-Baseline acceptance metrics and unevaluated accuracy are `null`. The `eval`
-target saves a baseline record with accuracy filled in. Evaluating speculative
+Baseline acceptance metrics are `null`. The `baseline` and `specdec` targets
+leave accuracy as `null`; the `eval` target runs the baseline configuration and
+fills in its accuracy using the reward function. Evaluating speculative
 accuracy remains future work beyond these requested targets.
 
-The planned plot compares throughput and mean acceptance length. Generated
-results, plots, model weights, and caches are ignored by Git; `results/.gitkeep`
-keeps the output directory in the repo.
+The `plot` target automatically reads `results.json` and generates a dual-axis bar chart comparing tokens per second and mean acceptance length across configurations. Generated results, plots, model weights, and caches are ignored by Git; `results/.gitkeep` keeps the output directory in the repo.

@@ -31,8 +31,14 @@ def main() -> int:
 
     try:
         if target == "plot":
+            results_path = ROOT / "results/results.json"
+            if not results_path.exists():
+                results_path = ROOT / "results/fake_data.json"
+                print(
+                    "No results/results.json found; plotting results/fake_data.json."
+                )
             plot_comparison(
-                str(ROOT / "results/results.json"),
+                str(results_path),
                 str(ROOT / "results/comparison.png"),
             )
             return 0
