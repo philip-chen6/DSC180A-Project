@@ -43,8 +43,11 @@ and metrics logic was retained.
 
 Verification includes 75 passing CPU tests, a real vLLM draft-model smoke test,
 exact greedy output comparisons, and matched 20-question greedy and sampled
-GSM8K runs. The saved completions were rescored with the existing reward
-function, and prompt alignment and acceptance metric ranges were checked.
+GSM8K runs. Full 200-question greedy generation and evaluation runs also
+completed with exact agreement across both modes and their reruns. The saved
+completions were rescored with the existing reward function, and prompt
+alignment and acceptance metric ranges were checked. Plots were generated
+from the real results history and visually inspected.
 The README records the final results and reproducible setup. These experiments
 use one completion per question at concurrency one, without an RL training
 loop. Small sampled accuracy differences do not establish a distributional

@@ -10,7 +10,7 @@ baseline. RL training comes later.
 
 - Target: `Qwen/Qwen2.5-1.5B-Instruct`.
 - Draft: `Qwen/Qwen2.5-0.5B-Instruct` (shared tokenizer).
-- Planned official hardware: one RTX 5070, 12 GB VRAM, Blackwell SM120.
+- Validated hardware: one RTX 5070, 12 GB VRAM, Blackwell SM120.
   Teammates develop on their own NVIDIA GPUs.
 
 **Current status:** data loading, prompt formatting, numeric rewards, baseline
@@ -20,9 +20,10 @@ Accuracy evaluation supports both baseline and speculative configs.
 All 75 CPU tests and a real RTX 5070 vLLM smoke test pass. The GPU greedy
 comparison passes with 0/3 differences in two consecutive batch-invariant runs.
 The matched 20-prompt greedy and sampled GPU preflights passed. Clean full
-200-prompt greedy generation runs completed with 0/200 exact-string differences
-and 71.5% accuracy in both modes. Separate accuracy evaluation reruns are in
-progress with Valorant closed.
+200-prompt greedy generation and evaluation runs completed with 0/200
+exact-string differences and 71.5% accuracy in both modes. Plots were generated
+from real results. Sampling was measured on 20 prompts; 200-prompt sampled runs
+have not been collected.
 
 | Owner | Files |
 | --- | --- |
@@ -69,7 +70,7 @@ python -m pip check
 The pinned GPU stack is intended for Linux and WSL2. The `baseline`,
 `specdec`, `eval`, and `check` targets require a compatible NVIDIA GPU with
 sufficient VRAM, a working CUDA runtime, model downloads, and the pinned vLLM
-stack. Official benchmark results will be collected on the RTX 5070.
+stack. The measured RTX 5070 results are recorded below.
 
 ## Tested GPU setup
 
@@ -96,7 +97,14 @@ PyTorch reports `sm_120` among its compiled architectures. A CUDA matrix multipl
 passed, and vLLM generated `Hello! How can I assist you today?` with
 `Qwen/Qwen2.5-0.5B-Instruct`. All 75 CPU tests passed in this Linux environment.
 `requirements-gpu-lock.txt` records the exact installed packages and is loaded
-as constraints by `requirements.txt`.
+as constraints by `requirements.txt`. A final `pip check` passed, and all 218
+installed package versions exactly matched that lock.
+
+The validated Hugging Face model snapshots were
+`989aa7980e4cf806f80c7fef2b1adb7bc71aa306` for the target and
+`7ae557604adf67be50417f59c2c2f167def9a775` for the draft. The generated
+`results/gpu-environment.json` also records these revisions, package versions,
+the CUDA architecture list, driver output, and hashes of the selected questions.
 
 From administrator PowerShell, install WSL and Ubuntu. If Windows requests a
 reboot, restart and rerun the install command to finish adding the distribution:
@@ -327,22 +335,41 @@ GPU setup above.
 
 ## Results
 
-### Idle-GPU full greedy generation (200 prompts)
+### Idle-GPU full greedy comparison (200 prompts)
 
 The original 200-prompt configs completed with the shared 0.55 memory budget
-and `VLLM_BATCH_INVARIANT=1`. The generation-only measurements were:
+and `VLLM_BATCH_INVARIANT=1`, with Valorant closed. The final evaluation records
+in `results/results.json` were:
 
-| Mode | Tokens/sec | Mean latency (s) | Mean acceptance length | Acceptance rate | Accuracy from saved answers |
+| Mode | Tokens/sec | Mean latency (s) | Mean acceptance length | Acceptance rate | Accuracy |
 | --- | ---: | ---: | ---: | ---: | ---: |
-| `baseline` | 65.36 | 3.021 | n/a | n/a | 71.5% (143/200) |
-| `specdec` | 73.76 | 2.677 | 4.701 | 74.02% | 71.5% (143/200) |
+| `baseline` | 65.80 | 3.001 | n/a | n/a | 71.5% (143/200) |
+| `specdec` | 73.45 | 2.689 | 4.701 | 74.02% | 71.5% (143/200) |
 
-All 200 completion strings matched exactly between modes. The measured
-throughput ratio was 1.13x. Generation-only result records leave `accuracy`
-null; the accuracy values above were recomputed with `reward()` from
-`results/idle-baseline-200.json` and `results/idle-specdec-200.json`.
-Separate `eval` reruns are in progress to save accuracy directly in the
-append-only result history.
+All 200 completion strings matched exactly between modes, and each evaluation
+rerun reproduced its generation-only outputs exactly. Both modes averaged
+197.47 output tokens. The evaluation throughput ratio was 1.12x, with 10.4%
+lower mean latency. The separate generation-only runs measured 65.36 and 73.76
+tokens/sec (1.13x), respectively. These are single-seed, concurrency-one
+measurements using the reproducible kernel setting described above.
+
+Accuracy was recomputed from every archived completion with `reward()`.
+Prompt/gold alignment, runtime settings, acceptance ranges, and correspondence
+with the latest 200-prompt result records passed the final audit, saved as
+`results/idle-full-summary.json`. The archives are
+`results/idle-baseline-200.json`, `results/idle-specdec-200.json`,
+`results/idle-eval-baseline-200.json`, and `results/idle-eval-specdec-200.json`.
+No teammate-owned data, reward, or metrics logic was changed.
+
+Reproduce the full greedy suite from the activated Ubuntu GPU environment:
+
+```bash
+python run.py baseline --outputs results/idle-baseline-200.json
+python run.py specdec --outputs results/idle-specdec-200.json
+python run.py eval --outputs results/idle-eval-baseline-200.json
+python run.py eval --config config/specdec.json --outputs results/idle-eval-specdec-200.json
+MPLBACKEND=Agg python run.py plot
+```
 
 ### Idle-GPU greedy and sampled comparison (20 prompts)
 
@@ -433,10 +460,26 @@ acceptance length across configurations. Generated results, plots, model
 weights, and caches are ignored by Git; `results/.gitkeep` keeps the output
 directory in the repo.
 
+The completed GPU suite's `plot` log confirmed
+`Plot input: /mnt/c/Dev/Projects/DSC180A-Project/results/results.json`.
+Because the standard plot selects the latest record per label, its
+`comparison.png` combines 200-prompt greedy rows with 20-prompt sampled rows.
+For matched prompt counts, the additional `results/comparison-20.png` contains
+all four modes and `results/comparison-200.png` contains the full greedy pair.
+Their inputs, `results/plot-input-20.json` and `results/plot-input-200.json`,
+were filtered from the real results history and checked against the audited
+summary files. `results/plot-provenance.json` records the source file's SHA256.
+Both matched plots were visually inspected; no synthetic data was used.
+
 ## Known Bugs
 In `README.md` and `requirements.txt`, we specify a plan for running on a specific environment, which is integral to the main topic (limited compute for RL speculative decoding). It is possible that the given instructions do not run on all GPU setups and OS because of the specific devices the authors are attempting to run on. Broader coverage will possibly be added in future iterations if they do not obscure the focus of the project scope.
 
-There is a reward extraction bug giving credit for incorrect answers, and the metrics pipeline doesn't yet enforce the strict scheme we plan to finalize with. The current saved results do not form a complete benchmark but are demonstrative of currently working features for the checkpoint. Our realistic goal for the quarter project is to create a working MVP to build off of for next quarter. 
+An earlier checkpoint reported incorrect credits from reward extraction. The
+current scorer remains a decimal-only heuristic and does not interpret
+fractions. Saved completions and numeric sanity checks support the reported
+scores, but they do not prove the parser handles every possible response.
+The GPU tables above are measured inference benchmarks; RL training and policy
+drift experiments remain future work.
 
 ## Human and AI Contributions
 
