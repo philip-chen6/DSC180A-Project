@@ -17,9 +17,10 @@ baseline. RL training comes later.
 and speculative generation, timing, acceptance metric extraction, result
 saving, plotting, and a greedy output comparison command are implemented.
 Accuracy evaluation supports both baseline and speculative configs.
-All 63 CPU tests and a real RTX 5070 vLLM smoke test pass. The GPU greedy
+All 75 CPU tests and a real RTX 5070 vLLM smoke test pass. The GPU greedy
 comparison passes with 0/3 differences in two consecutive batch-invariant runs.
-The 20-prompt GSM8K preflight passed; full 200-prompt runs are in progress.
+The 20-prompt greedy GSM8K preflight passed. Sampled GPU validation and clean
+full-run timings are pending an idle GPU; timed runs are paused during gaming.
 
 | Owner | Files |
 | --- | --- |
@@ -91,7 +92,7 @@ execution enabled in both modes.
 
 PyTorch reports `sm_120` among its compiled architectures. A CUDA matrix multiply
 passed, and vLLM generated `Hello! How can I assist you today?` with
-`Qwen/Qwen2.5-0.5B-Instruct`. All 63 CPU tests passed in this Linux environment.
+`Qwen/Qwen2.5-0.5B-Instruct`. All 75 CPU tests passed in this Linux environment.
 `requirements-gpu-lock.txt` records the exact installed packages and is loaded
 as constraints by `requirements.txt`.
 
@@ -198,9 +199,11 @@ the final numeric answer extracted from the dataset's `#### <number>` line.
 model to end with a numeric answer. The dataset is downloaded lazily when a
 generation or evaluation target runs.
 
-Both configs default to 200 prompts, seed 0, temperature 0.0, and 512 maximum
-output tokens. Speculative decoding defaults to 5 draft tokens. Change run
-parameters in `config/baseline.json` or `config/specdec.json`.
+The greedy configs (`config/baseline.json`, `config/specdec.json`) default to
+200 prompts, seed 0, temperature 0.0, and 512 maximum output tokens. The sampled
+configs (`config/baseline_sample.json`, `config/specdec_sample.json`) retain the
+same settings except for temperature 1.0 and top_p 1.0. Speculative decoding
+defaults to 5 draft tokens. `top_p` defaults to 1.0 when absent from a config.
 
 ## Running each target
 
@@ -208,18 +211,24 @@ parameters in `config/baseline.json` or `config/specdec.json`.
 python run.py             # print usage
 python run.py baseline    # baseline config: load, format, generate, save
 python run.py specdec     # speculative config: load, format, generate, save
+python run.py baseline_sample  # sampled baseline: temperature 1, top_p 1
+python run.py specdec_sample   # sampled speculative: temperature 1, top_p 1
 python run.py eval        # baseline config: generate, score rewards, save accuracy
 python run.py eval --config config/specdec.json  # speculative accuracy
+python run.py eval_sample # generate and score both sampled modes sequentially
 python run.py plot        # results/results.json or fake_data.json -> comparison.png
 python run.py test        # run pytest with the current Python interpreter
 python run.py check       # compare greedy baseline/specdec outputs on a GPU
 ```
 
-Use `--config <path>` with `baseline`, `specdec`, `eval`, or `check` to select
+Use `--config <path>` with a generation target, `eval`, or `check` to select
 a config copy without changing the originals. Use `--outputs <path>` with
 generation or evaluation to save questions, gold answers, exact completions,
 the config, and run statistics for inspection.
 With `check`, `--outputs` instead saves the exact baseline/speculative comparison.
+For `eval_sample`, use `--baseline-config` and `--specdec-config` to select a
+matched pair of config copies. Its `--outputs` file contains both complete run
+archives under `runs.baseline_sample` and `runs.specdec_sample`.
 
 `baseline`, `specdec`, and `eval` require the full dependencies, a model
 download, and a working GPU runtime. They load GSM8K, format prompts, run
@@ -237,6 +246,55 @@ prints `Greedy output comparison: X/N completions differ.` and exits nonzero
 on a mismatch or failed run. This checks agreement between the two decoding
 configurations; mathematical correctness is evaluated through the answer
 scoring pipeline. This command requires a working vLLM GPU installation.
+`check` stays greedy-only because sampled runs need not produce identical strings, even with the same seed.
+
+### Sampled benchmarks
+
+This suite uses temperature 1.0 and top_p 1.0 as an explicit sampled workload;
+those settings are experiment choices rather than universal RL requirements.
+vLLM supports stochastic draft-model speculative decoding (see its
+[draft-model example](https://docs.vllm.ai/en/v0.32.0/features/speculative_decoding/draft_model/)).
+The effect of sampling on speedup is measured rather than assumed.
+
+`baseline_sample` and `specdec_sample` generate and save timing/acceptance
+records. `eval_sample` regenerates and scores both modes with `reward()`, using
+one child process at a time so each GPU engine releases its memory before the
+next starts. Its configs must match except for draft-model settings; it uses
+the same questions, seed, sampling settings, and limits for both modes.
+
+Saved labels distinguish the workloads:
+
+| Temperature | No draft model | With draft model |
+| --- | --- | --- |
+| 0 | `baseline` | `specdec` |
+| Positive | `baseline_sample` | `specdec_sample` |
+
+The existing plot groups by these labels and therefore keeps all four modes
+separate. Sampled target overrides require a positive temperature. Baseline
+acceptance metrics stay `null`, and generation-only targets leave accuracy
+`null` until evaluation. `eval_sample` appends two accuracy records to the
+configured results file and does not require the measured accuracies to match:
+finite samples can differ by chance. A single 20-question run cannot establish
+distributional equivalence or an accuracy difference. This remains one sampled
+completion per question at concurrency one, without an RL training loop.
+
+For a 20-prompt sampled preflight, create config copies and run the following
+only when the GPU is idle:
+
+```bash
+mkdir -p .cache/gpu-validation
+python - <<'PY'
+import json
+from pathlib import Path
+for mode in ('baseline_sample', 'specdec_sample'):
+    config = json.loads(Path(f'config/{mode}.json').read_text())
+    config['n_prompts'] = 20
+    Path(f'.cache/gpu-validation/{mode}-20.json').write_text(json.dumps(config, indent=2))
+PY
+python run.py baseline_sample --config .cache/gpu-validation/baseline_sample-20.json --outputs results/small-baseline-sample.json
+python run.py specdec_sample --config .cache/gpu-validation/specdec_sample-20.json --outputs results/small-specdec-sample.json
+python run.py eval_sample --baseline-config .cache/gpu-validation/baseline_sample-20.json --specdec-config .cache/gpu-validation/specdec_sample-20.json --outputs results/small-sampled-eval.json
+```
 
 Generation currently sends one prompt at a time. Each request's wall time
 includes tokenization, prefill, decoding, and output handling. Model startup and
@@ -264,7 +322,7 @@ GPU setup above.
 
 ## Results
 
-### GPU preflight (20 prompts)
+### Greedy GPU preflight (20 prompts)
 
 Both modes and both `eval` reruns produced identical completion strings for all
 20 questions. The final evaluation records in `results/results.json` are:
@@ -279,6 +337,11 @@ generation-only preflight measured 66.03 and 69.90 tokens/sec respectively.
 The accuracy scores were checked against the saved completions, including
 manual inspection of responses that did not follow the requested `####` format.
 No teammate-owned data, reward, or metrics logic was changed.
+
+The sampled implementation is CPU-tested; its real GPU measurements are still
+pending the requested pause while Valorant is active. A later 200-prompt greedy
+baseline completed under concurrent gaming load and must be rerun for a clean
+timing comparison. Do not treat that exploratory record as an uncontended result.
 
 Create the preflight configs without changing the originals, from the Ubuntu
 repo root after activating the GPU environment:
@@ -305,10 +368,11 @@ is documented in `src/generate.py` and `src/metrics.py`.
 
 Records contain the config label, prompt count, output tokens per second,
 mean latency in seconds, mean output length, acceptance metrics, and accuracy.
-Baseline acceptance metrics are `null`. The `baseline` and `specdec` targets
+Baseline acceptance metrics are `null`. All four generation targets
 leave accuracy as `null`; the `eval` target runs the baseline configuration and
 fills in its accuracy using the reward function. Select `config/specdec.json`
-with `eval --config` to evaluate speculative accuracy.
+with `eval --config` to evaluate speculative accuracy. `eval_sample` scores both
+sampled modes and saves their accuracy under the two sampled labels.
 
 The `plot` target reads `results/results.json` when benchmark results exist.
 If that file is absent, it explicitly falls back to the committed synthetic
