@@ -455,11 +455,19 @@ python run.py eval --config .cache/gpu-validation/baseline_sample_3b-20.json --o
 python run.py eval --config .cache/gpu-validation/specdec_sample_3b-20.json --outputs results/target3b_sample/specdec-20.json
 ```
 
-The full paired evaluation is running with the committed 200-question profiles:
+The full confirmation uses the committed 200-question profiles. Run the two
+modes separately to retain each completion archive even if a later run fails:
 
 ```bash
-python run.py eval_sample --baseline-config config/experiments/baseline_sample_3b.json --specdec-config config/experiments/specdec_sample_3b.json --outputs results/target3b_sample/eval-200.json
+python run.py eval --config config/experiments/baseline_sample_3b.json --outputs results/target3b_sample/baseline-200.json
+python run.py eval --config config/experiments/specdec_sample_3b.json --outputs results/target3b_sample/specdec-200.json
 ```
+
+The initial full confirmation was interrupted when the shared checkout switched
+from `gpu-validation` to `main` between child processes. Its completed baseline
+timing remains in the append-only history. The matched confirmation is being
+rerun from an isolated worktree of checkpoint `c9c3cac`, with source/config
+checksums recorded in `results/target3b_sample/source-manifest.json`.
 
 This remains fixed-weight inference and answer scoring. RL would additionally
 use rewards to update the target policy's weights and repeat rollout generation;
