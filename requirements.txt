@@ -1,4 +1,7 @@
-# Core ML (compatible with vLLM 0.32.0)
+# Exact Ubuntu GPU environment, including transitive CUDA/runtime dependencies.
+-c requirements-gpu-lock.txt
+
+# Core ML (vLLM 0.32.0 / PyTorch CUDA 13.0 wheels)
 torch==2.13.0
 vllm==0.32.0; platform_system == "Linux"
 transformers==5.19.0

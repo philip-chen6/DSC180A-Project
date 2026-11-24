@@ -67,6 +67,81 @@ The pinned GPU stack is intended for Linux and WSL2. The `baseline`,
 sufficient VRAM, a working CUDA runtime, model downloads, and the pinned vLLM
 stack. Official benchmark results will be collected on the RTX 5070.
 
+## Tested GPU setup
+
+The GPU smoke test passed on November 23, 2026 with the following setup.
+The original package pins installed successfully; no GPU driver or system CUDA
+installation was changed. Full benchmark validation is in progress on this branch.
+
+| Component | Tested value |
+| --- | --- |
+| Host | Windows 25H2, build 26200.9974 |
+| WSL package / Linux kernel | 3.0.5 / 6.18.58.1-1 |
+| Distribution | Ubuntu 24.04.5 LTS, WSL2 |
+| GPU | NVIDIA GeForce RTX 5070, 12,227 MiB, compute capability 12.0 |
+| Windows NVIDIA driver | 621.01; driver-reported CUDA support 13.5 |
+| Python | 3.12.3 |
+| vLLM | 0.32.0 |
+| PyTorch | 2.13.0 (`torch.__version__`: `2.13.0+cu130`), CUDA runtime 13.0 |
+| Transformers / Datasets | 5.19.0 / 4.7.0 |
+
+PyTorch reports `sm_120` among its compiled architectures. A CUDA matrix multiply
+passed, and vLLM generated `Hello! How can I assist you today?` with
+`Qwen/Qwen2.5-0.5B-Instruct`. All 62 CPU tests passed in this Linux environment.
+`requirements-gpu-lock.txt` records the exact installed packages and is loaded
+as constraints by `requirements.txt`.
+
+From administrator PowerShell, install WSL and Ubuntu. If Windows requests a
+reboot, restart and rerun the install command to finish adding the distribution:
+
+```powershell
+wsl --install -d Ubuntu-24.04 --no-launch
+```
+
+Install the Linux prerequisites from PowerShell (these commands use Ubuntu's
+root account and do not require a Linux password):
+
+```powershell
+wsl -d Ubuntu-24.04 -u root -- apt-get update
+wsl -d Ubuntu-24.04 -u root -- apt-get install -y python3.12-venv python3.12-dev build-essential libnuma1
+wsl -d Ubuntu-24.04
+```
+
+In Ubuntu, use the repository root and a venv on the Linux filesystem. On the
+validation machine the repository is `/mnt/c/Dev/Projects/DSC180A-Project` and
+the venv is `/home/philip/venvs/dsc180a-gpu`:
+
+```bash
+cd /mnt/c/Dev/Projects/DSC180A-Project  # adjust for your checkout
+python3.12 -m venv ~/venvs/dsc180a-gpu
+source ~/venvs/dsc180a-gpu/bin/activate
+python -m pip install --upgrade pip
+python -m pip install -r requirements.txt
+python -m pip check
+
+# Use the CUDA compiler delivered inside this venv, without system CUDA changes.
+export CUDA_HOME="$VIRTUAL_ENV/lib/python3.12/site-packages/nvidia/cu13"
+export PATH="$CUDA_HOME/bin:$PATH"
+export VLLM_WORKER_MULTIPROC_METHOD=spawn
+
+nvidia-smi
+python -c "import torch; print(torch.__version__, torch.version.cuda, torch.cuda.get_device_name(), torch.cuda.get_device_capability(), torch.cuda.get_arch_list())"
+python run.py test
+python run.py check
+```
+
+The `python3.12-dev` package is required: without its `Python.h`, Triton's
+runtime C extension fails to compile during engine startup. Activate the venv
+and export the compiler paths in every new shell. Initial startup downloads
+model weights and compiles/autotunes kernels; later starts reuse local caches.
+
+Both benchmark configs retain 200 prompts and use
+`gpu_memory_utilization=0.7`, `max_model_len=2048`, and `max_num_seqs=1`.
+The shared limits leave VRAM for the Windows desktop and use the same context
+and request concurrency in both modes. The standalone draft smoke test used
+`gpu_memory_utilization=0.65` and eager execution; benchmark configs keep vLLM's
+normal compilation and CUDA graph settings.
+
 ## Data
 
 Use the GSM8K test split for the initial benchmark. `load_gsm8k` selects a
