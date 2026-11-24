@@ -1,0 +1,438 @@
+{
+  "schema_version": 1,
+  "date": "2026-11-24",
+  "description": "Measured fixed-policy GSM8K inference; no RL training or policy updates.",
+  "hardware": {
+    "gpu": "NVIDIA GeForce RTX 5070",
+    "vram_mib": 12227,
+    "compute_capability": [
+      12,
+      0
+    ],
+    "host": "Windows with Ubuntu 24.04 under WSL2"
+  },
+  "software": {
+    "torch": "2.13.0",
+    "vllm": "0.32.0",
+    "transformers": "5.19.0",
+    "datasets": "4.7.0",
+    "python": "3.12.3",
+    "cuda_runtime": "13.0"
+  },
+  "current_model_revisions": {
+    "Qwen/Qwen2.5-3B-Instruct": "aa8e72537993ba99e69dfaafa59ed015b17504d1",
+    "Qwen/Qwen2.5-0.5B-Instruct": "7ae557604adf67be50417f59c2c2f167def9a775"
+  },
+  "shared_generation_settings": {
+    "seed": 0,
+    "max_tokens": 512,
+    "max_model_len": 2048,
+    "concurrency": 1,
+    "top_p": 1.0,
+    "precision": "bfloat16",
+    "quantization": null
+  },
+  "historical_comparisons_200": [
+    {
+      "target_model": "Qwen/Qwen2.5-1.5B-Instruct",
+      "draft_model": "Qwen/Qwen2.5-0.5B-Instruct",
+      "batch_invariant": true,
+      "gpu_memory_utilization": 0.55,
+      "source_summary": "results/idle-full-all-modes-summary.json",
+      "rows": [
+        {
+          "config": "baseline",
+          "n_prompts": 200,
+          "tokens_per_sec": 65.80074309893882,
+          "mean_latency_s": 3.001029938265008,
+          "mean_output_len": 197.47,
+          "mean_acceptance_length": null,
+          "acceptance_rate": null,
+          "accuracy": 0.715,
+          "temperature": 0.0,
+          "draft_length": 0,
+          "draft_sample_method": null,
+          "throughput_ratio": 1.0
+        },
+        {
+          "config": "specdec",
+          "n_prompts": 200,
+          "tokens_per_sec": 73.4497157781251,
+          "mean_latency_s": 2.688505978655003,
+          "mean_output_len": 197.47,
+          "mean_acceptance_length": 4.7010882422521885,
+          "acceptance_rate": 0.7402176484504377,
+          "accuracy": 0.715,
+          "temperature": 0.0,
+          "draft_length": 5,
+          "draft_sample_method": "greedy",
+          "throughput_ratio": 1.1162444726146206
+        },
+        {
+          "config": "baseline_sample",
+          "n_prompts": 200,
+          "tokens_per_sec": 69.43117489108506,
+          "mean_latency_s": 2.549791218104984,
+          "mean_output_len": 177.035,
+          "mean_acceptance_length": null,
+          "acceptance_rate": null,
+          "accuracy": 0.57,
+          "temperature": 1.0,
+          "draft_length": 0,
+          "draft_sample_method": null,
+          "throughput_ratio": 1.0
+        },
+        {
+          "config": "specdec_sample",
+          "n_prompts": 200,
+          "tokens_per_sec": 56.50624974791262,
+          "mean_latency_s": 3.036478279225004,
+          "mean_output_len": 171.58,
+          "mean_acceptance_length": 3.6102263202011735,
+          "acceptance_rate": 0.5220452640402347,
+          "accuracy": 0.525,
+          "temperature": 1.0,
+          "draft_length": 5,
+          "draft_sample_method": "greedy",
+          "throughput_ratio": 0.8138455072458812
+        }
+      ]
+    },
+    {
+      "target_model": "Qwen/Qwen2.5-3B-Instruct",
+      "draft_model": "Qwen/Qwen2.5-0.5B-Instruct",
+      "batch_invariant": true,
+      "gpu_memory_utilization": 0.7,
+      "source_summary": "results/target3b/summary-200.json",
+      "rows": [
+        {
+          "config": "baseline",
+          "n_prompts": 200,
+          "tokens_per_sec": 39.7142688179671,
+          "mean_latency_s": 5.414804461985,
+          "mean_output_len": 215.045,
+          "mean_acceptance_length": null,
+          "acceptance_rate": null,
+          "accuracy": 0.835,
+          "temperature": 0.0,
+          "draft_length": 0,
+          "draft_sample_method": null,
+          "throughput_ratio": 1.0
+        },
+        {
+          "config": "specdec",
+          "n_prompts": 200,
+          "tokens_per_sec": 63.20746216463579,
+          "mean_latency_s": 3.402209053100006,
+          "mean_output_len": 215.045,
+          "mean_acceptance_length": 4.612764585795638,
+          "acceptance_rate": 0.7225529171591275,
+          "accuracy": 0.835,
+          "temperature": 0.0,
+          "draft_length": 5,
+          "draft_sample_method": "greedy",
+          "throughput_ratio": 1.5915554798289564
+        },
+        {
+          "config": "baseline_sample",
+          "n_prompts": 200,
+          "tokens_per_sec": 39.97031703524334,
+          "mean_latency_s": 5.224126689210003,
+          "mean_output_len": 208.81,
+          "mean_acceptance_length": null,
+          "acceptance_rate": null,
+          "accuracy": 0.8,
+          "temperature": 1.0,
+          "draft_length": 0,
+          "draft_sample_method": null,
+          "throughput_ratio": 1.0
+        },
+        {
+          "config": "specdec_sample",
+          "n_prompts": 200,
+          "tokens_per_sec": 49.6934396130435,
+          "mean_latency_s": 4.3323626151950005,
+          "mean_output_len": 215.29,
+          "mean_acceptance_length": 3.6593752659800836,
+          "acceptance_rate": 0.5318750531960167,
+          "accuracy": 0.83,
+          "temperature": 1.0,
+          "draft_length": 5,
+          "draft_sample_method": "greedy",
+          "throughput_ratio": 1.24325858034168
+        }
+      ]
+    },
+    {
+      "target_model": "Qwen/Qwen2.5-3B-Instruct",
+      "draft_model": "Qwen/Qwen2.5-0.5B-Instruct",
+      "batch_invariant": false,
+      "gpu_memory_utilization": 0.7,
+      "source_summary": "results/target3b_sample_optimized/summary-200.json",
+      "rows": [
+        {
+          "config": "baseline_sample",
+          "n_prompts": 200,
+          "tokens_per_sec": 81.60286035198003,
+          "mean_latency_s": 2.5716623056450008,
+          "mean_output_len": 209.855,
+          "mean_acceptance_length": null,
+          "acceptance_rate": null,
+          "accuracy": 0.785,
+          "temperature": 1.0,
+          "draft_length": 0,
+          "draft_sample_method": null,
+          "throughput_ratio": 1.0
+        },
+        {
+          "config": "specdec_sample",
+          "n_prompts": 200,
+          "tokens_per_sec": 101.33720976093585,
+          "mean_latency_s": 2.0510235133799934,
+          "mean_output_len": 207.845,
+          "mean_acceptance_length": 4.242461412654604,
+          "acceptance_rate": 0.648492282530921,
+          "accuracy": 0.77,
+          "temperature": 1.0,
+          "draft_length": 5,
+          "draft_sample_method": "probabilistic",
+          "throughput_ratio": 1.241834040177453
+        }
+      ]
+    }
+  ],
+  "draft_length_preflight_20": {
+    "n_prompts": 20,
+    "source_commit": "515efafa50480535613bb76a18469437e291bd2c",
+    "common_config": {
+      "target_model": "Qwen/Qwen2.5-3B-Instruct",
+      "temperature": 1.0,
+      "top_p": 1.0,
+      "max_tokens": 512,
+      "n_prompts": 20,
+      "seed": 0,
+      "gpu_memory_utilization": 0.7,
+      "max_model_len": 2048,
+      "max_num_seqs": 1,
+      "enforce_eager": false
+    },
+    "rows": [
+      {
+        "config": "baseline_sample",
+        "n_prompts": 20,
+        "tokens_per_sec": 78.99759499842807,
+        "mean_latency_s": 2.355134988649998,
+        "mean_output_len": 186.05,
+        "mean_acceptance_length": null,
+        "acceptance_rate": null,
+        "accuracy": 0.75,
+        "draft_length": 0,
+        "source": "results/target3b_sample_optimized/baseline-20.json",
+        "reused_reference": true,
+        "throughput_ratio": 1.0
+      },
+      {
+        "config": "specdec_sample",
+        "n_prompts": 20,
+        "tokens_per_sec": 103.4136936829337,
+        "mean_latency_s": 1.6245430756499992,
+        "mean_output_len": 168.0,
+        "mean_acceptance_length": 1.843353557639272,
+        "acceptance_rate": 0.8433535576392719,
+        "accuracy": 0.8,
+        "draft_length": 1,
+        "source": "results/target3b_sample_draft_length/k1/eval-20.json",
+        "reused_reference": false,
+        "throughput_ratio": 1.3090739494663284
+      },
+      {
+        "config": "specdec_sample",
+        "n_prompts": 20,
+        "tokens_per_sec": 114.91598419545552,
+        "mean_latency_s": 1.5998644686999994,
+        "mean_output_len": 183.85,
+        "mean_acceptance_length": 2.6029829545454546,
+        "acceptance_rate": 0.8014914772727273,
+        "accuracy": 0.9,
+        "draft_length": 2,
+        "source": "results/target3b_sample_draft_length/k2/eval-20.json",
+        "reused_reference": false,
+        "throughput_ratio": 1.4546769961508597
+      },
+      {
+        "config": "specdec_sample",
+        "n_prompts": 20,
+        "tokens_per_sec": 104.02615275407828,
+        "mean_latency_s": 1.6510271258999978,
+        "mean_output_len": 171.75,
+        "mean_acceptance_length": 3.145354185832567,
+        "acceptance_rate": 0.7151180619441889,
+        "accuracy": 0.8,
+        "draft_length": 3,
+        "source": "results/target3b_sample_draft_length/k3/eval-20.json",
+        "reused_reference": false,
+        "throughput_ratio": 1.3168268319579632
+      },
+      {
+        "config": "specdec_sample",
+        "n_prompts": 20,
+        "tokens_per_sec": 102.18606352565364,
+        "mean_latency_s": 1.7022869263999993,
+        "mean_output_len": 173.95,
+        "mean_acceptance_length": 4.185765983112184,
+        "acceptance_rate": 0.6371531966224366,
+        "accuracy": 0.85,
+        "draft_length": 5,
+        "source": "results/target3b_sample_optimized/specdec-20.json",
+        "reused_reference": true,
+        "throughput_ratio": 1.2935338541342554
+      },
+      {
+        "config": "specdec_sample",
+        "n_prompts": 20,
+        "tokens_per_sec": 84.31804549737126,
+        "mean_latency_s": 2.1567150771499968,
+        "mean_output_len": 181.85,
+        "mean_acceptance_length": 5.325072886297376,
+        "acceptance_rate": 0.540634110787172,
+        "accuracy": 0.85,
+        "draft_length": 8,
+        "source": "results/target3b_sample_draft_length/k8/eval-20.json",
+        "reused_reference": false,
+        "throughput_ratio": 1.0673495249956542
+      }
+    ],
+    "best_length": 2,
+    "best_vs_k5": 1.1245758984208845,
+    "confirmation_candidate": 2,
+    "selection_metric": "output tokens per second; not sampled accuracy",
+    "source_sha256": {
+      "results/target3b_sample_optimized/baseline-20.json": "c6fd8abb298b997709157121ade131d5acbe007c6a1605c4f9c26a3713eadd03",
+      "results/target3b_sample_optimized/specdec-20.json": "ef03a67ac2f4af85cc0adf243590e5ddd7d68da756ed45905a51aae008413c75",
+      "results/target3b_sample_draft_length/k1/eval-20.json": "258d584b3cba9ce5f83eae2f0b10e65b1416ad15c5794d8c803dc29d71e1452f",
+      "results/target3b_sample_draft_length/k2/eval-20.json": "004abdb9a9304bba3173be712e36e28e5b27ef596746bdbd9ec9c78705797617",
+      "results/target3b_sample_draft_length/k3/eval-20.json": "c1da854b03a2a56ea258c26e6e6b915ad477baaffef0138373b9e885adcd647f",
+      "results/target3b_sample_draft_length/k8/eval-20.json": "f180f21547321f9827230ef7dbdc93913c9b22dbe6fe2733e4d4710491d7738b"
+    },
+    "answer_audit_flags": 1,
+    "notes": "Single-seed timings. Baseline and k5 are source/config-matched archived references, not fresh interleaved runs."
+  },
+  "draft_length_confirmation_200": {
+    "n_prompts": 200,
+    "source_commit": "515efafa50480535613bb76a18469437e291bd2c",
+    "common_config": {
+      "target_model": "Qwen/Qwen2.5-3B-Instruct",
+      "temperature": 1.0,
+      "top_p": 1.0,
+      "max_tokens": 512,
+      "n_prompts": 200,
+      "seed": 0,
+      "gpu_memory_utilization": 0.7,
+      "max_model_len": 2048,
+      "max_num_seqs": 1,
+      "enforce_eager": false
+    },
+    "rows": [
+      {
+        "config": "baseline_sample",
+        "n_prompts": 200,
+        "tokens_per_sec": 81.60286035198003,
+        "mean_latency_s": 2.5716623056450008,
+        "mean_output_len": 209.855,
+        "mean_acceptance_length": null,
+        "acceptance_rate": null,
+        "accuracy": 0.785,
+        "draft_length": 0,
+        "source": "results/target3b_sample_optimized/baseline-200.json",
+        "reused_reference": true,
+        "throughput_ratio": 1.0
+      },
+      {
+        "config": "specdec_sample",
+        "n_prompts": 200,
+        "tokens_per_sec": 118.86651271665396,
+        "mean_latency_s": 1.787088685829999,
+        "mean_output_len": 212.425,
+        "mean_acceptance_length": 2.602739726027397,
+        "acceptance_rate": 0.8013698630136986,
+        "accuracy": 0.8,
+        "draft_length": 2,
+        "source": "results/target3b_sample_draft_length/k2/eval-200.json",
+        "reused_reference": false,
+        "throughput_ratio": 1.456646399451484
+      },
+      {
+        "config": "specdec_sample",
+        "n_prompts": 200,
+        "tokens_per_sec": 101.33720976093585,
+        "mean_latency_s": 2.0510235133799934,
+        "mean_output_len": 207.845,
+        "mean_acceptance_length": 4.242461412654604,
+        "acceptance_rate": 0.648492282530921,
+        "accuracy": 0.77,
+        "draft_length": 5,
+        "source": "results/target3b_sample_optimized/specdec-200.json",
+        "reused_reference": true,
+        "throughput_ratio": 1.241834040177453
+      }
+    ],
+    "best_length": 2,
+    "best_vs_k5": 1.1729799251140958,
+    "confirmation_candidate": 2,
+    "selection_metric": "output tokens per second; not sampled accuracy",
+    "source_sha256": {
+      "results/target3b_sample_optimized/baseline-200.json": "9886c61c727a2df43d5f6bb5de8bc55fd80c97f1ea4525db31edcba2a8217015",
+      "results/target3b_sample_optimized/specdec-200.json": "bf4ba2acd62f7e715c374a98077230eb712e8aecadd283ea571e000a0b6c7a7d",
+      "results/target3b_sample_draft_length/k2/eval-200.json": "dee2e6e611213d0c06e7dfcd8957a43609a42c7935d1e8939efc164b6ca7e81b"
+    },
+    "answer_audit_flags": 1,
+    "notes": "Single-seed timings. Baseline and k5 are source/config-matched archived references, not fresh interleaved runs."
+  },
+  "draft_length_settings": {
+    "target_model": "Qwen/Qwen2.5-3B-Instruct",
+    "draft_model": "Qwen/Qwen2.5-0.5B-Instruct",
+    "temperature": 1.0,
+    "batch_invariant": false,
+    "draft_sample_method": "probabilistic",
+    "gpu_memory_utilization": 0.7
+  },
+  "recommended_config": "config/experiments/specdec_sample_3b_optimized_k2.json",
+  "validation": {
+    "cpu_tests_passed": 83,
+    "selected_config_greedy_check_mismatches": 0,
+    "selected_config_greedy_check_prompts": 3,
+    "historical_full_greedy_mismatches_1p5b": 0,
+    "historical_full_greedy_mismatches_3b": 0,
+    "scores_recomputed_from_saved_completions": true
+  },
+  "provenance": {
+    "initial_1p5b": {
+      "local_source": "results/idle-full-all-modes-summary.json",
+      "sha256": "6b6203f1fdb89e98a51f507c1ee870720487ca6cb4c530dcf5e3770df2c7e4bf"
+    },
+    "larger_3b": {
+      "local_source": "results/target3b/summary-200.json",
+      "sha256": "9145a8f9a4af1c146ec652904e104f09e03e1d558f0a262cb4a65964803a1679"
+    },
+    "optimized_3b_k5": {
+      "local_source": "results/target3b_sample_optimized/summary-200.json",
+      "sha256": "f8ae8ee4a60c85d7534661dfa15a00ba482fac896923f3e1425d778d141368fc"
+    },
+    "draft_length_preflight": {
+      "local_source": "results/target3b_sample_draft_length/summary-20.json",
+      "sha256": "b7c7e243424047ac372d32b88a9a6c9a9edf450253b1e97c5ca24067a4e54af2"
+    },
+    "draft_length_confirmation": {
+      "local_source": "results/target3b_sample_draft_length/summary-200.json",
+      "sha256": "e5ca0a9f693cae83c94331a060828d171ba36eef8eaaa7a5bc608ec557ac1929"
+    }
+  },
+  "limitations": [
+    "Single seed and concurrency one; these are not batched RL training throughput results.",
+    "The draft-length sweep selected by 20-question throughput, followed by a 200-question confirmation of length 2.",
+    "Baseline and length-5 references were reused after source/config checks, not freshly interleaved timing repeats.",
+    "Small sampled accuracy differences do not establish a model-quality or target-distribution change.",
+    "Optimized execution and probabilistic drafting changed together before the draft-length sweep.",
+    "Raw completion archives, logs, and caches remain local under ignored results/ and .cache/ paths."
+  ]
+}

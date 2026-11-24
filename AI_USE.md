@@ -116,4 +116,10 @@ tokens for this measured workload while retaining all reference profiles and
 their provenance. This remains fixed-model inference at concurrency one;
 the comparison uses archived references and does not claim repeated-timing
 confidence, a global optimum, or an accuracy improvement.
+For the requested publication to `main`, Codex exported a compact versioned
+JSON summary of the audited comparisons and copied the two key plots into
+`benchmarks/rtx5070-gsm8k/`. The export preserves measured values, runtime
+distinctions, reference provenance, and limitations; copied plots were checked
+against their original file hashes. Larger raw completion archives and logs
+remain local under the existing ignore rules.
 

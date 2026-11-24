@@ -37,6 +37,14 @@ tokens and confirmed 118.87 tokens/sec on 200 questions (1.46x baseline).
 All 83 CPU tests passed on the merged `main` branch. The earlier full results
 used batch invariance and greedy proposals.
 
+The compact [benchmark summary](benchmarks/rtx5070-gsm8k/summary.json),
+[draft-length sweep plot](benchmarks/rtx5070-gsm8k/draft-length-sweep-20.png),
+and [recommended sampled comparison plot](benchmarks/rtx5070-gsm8k/sampling-comparison-200.png)
+are tracked in Git for sharing. The summary includes the historical 1.5B/3B
+comparisons, current 200-question results, 20-question sweep, settings, and
+source hashes. Larger raw completion archives, logs, and caches remain local
+under the ignored `results/` and `.cache/` paths.
+
 | Owner | Files |
 | --- | --- |
 | Philip | `src/generate.py`, `src/check.py`, and their tests |
