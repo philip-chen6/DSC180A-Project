@@ -5,7 +5,7 @@
   "max_tokens": 512,
   "n_prompts": 200,
   "seed": 0,
-  "gpu_memory_utilization": 0.7,
+  "gpu_memory_utilization": 0.55,
   "max_model_len": 2048,
   "max_num_seqs": 1,
   "num_speculative_tokens": 5,

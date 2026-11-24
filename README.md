@@ -150,8 +150,8 @@ library search path. Without these paths its JIT linker reports missing
 `-lcudart` and `-lcuda`. The FlashInfer sampling kernel was compiled and executed
 successfully after these fixes.
 
-Both benchmark configs retain 200 prompts and use
-`gpu_memory_utilization=0.7`, `max_model_len=2048`, and `max_num_seqs=1`.
+All four benchmark configs retain 200 prompts and use
+`gpu_memory_utilization=0.55`, `max_model_len=2048`, and `max_num_seqs=1`.
 The shared limits leave VRAM for the Windows desktop and use the same context
 and request concurrency in both modes. The standalone draft smoke test used
 `gpu_memory_utilization=0.65` and eager execution. The activation helper defaults
@@ -160,6 +160,9 @@ batch-invariant kernels, disables torch.compile, and enables breakable CUDA
 graphs. Reported throughput is for this reproducible mode. Set the variable to
 `0` before sourcing the helper only when intentionally measuring default-kernel
 performance; exact greedy agreement is not guaranteed in that mode.
+The earlier greedy preflight used a 0.7 memory budget. Fresh idle-GPU runs use
+0.55 in every mode because the Windows desktop was consuming about 3.5 GB of
+VRAM before model startup; the lower budget leaves more room for those allocations.
 
 ### GPU validation outcome
 
