@@ -17,8 +17,9 @@ baseline. RL training comes later.
 and speculative generation, timing, acceptance metric extraction, result
 saving, plotting, and a greedy output comparison command are implemented.
 Accuracy evaluation supports both baseline and speculative configs.
-CPU tests pass; validation of the complete pipeline on real GPU
-hardware is still pending.
+All 62 CPU tests and a real RTX 5070 vLLM smoke test pass. The GPU greedy
+comparison currently reports 1/3 exact completion strings different; GSM8K
+benchmark runs are pending investigation of that correctness gate.
 
 | Owner | Files |
 | --- | --- |
@@ -72,7 +73,8 @@ stack. Official benchmark results will be collected on the RTX 5070.
 The GPU smoke test passed on November 23, 2026 with the following setup.
 The original PyTorch/vLLM pins installed successfully. Compiler dependencies
 were aligned with the CUDA 13.0 runtime; no GPU driver or system CUDA
-installation was changed. Full benchmark validation is in progress on this branch.
+installation was changed. The greedy check completed but failed its exact-output
+gate, so the small and full GSM8K benchmarks have not been run.
 
 | Component | Tested value |
 | --- | --- |
@@ -154,6 +156,28 @@ and request concurrency in both modes. The standalone draft smoke test used
 `gpu_memory_utilization=0.65` and eager execution; benchmark configs keep vLLM's
 normal compilation and CUDA graph settings.
 
+### GPU validation outcome
+
+`python run.py check` completed both GPU modes using vLLM 0.32.0 and reported:
+
+```text
+LLM.get_metrics() speculative names: vllm:spec_decode_num_accepted_tokens, vllm:spec_decode_num_accepted_tokens_per_pos, vllm:spec_decode_num_draft_tokens, vllm:spec_decode_num_drafts
+Acceptance metrics: mean_acceptance_length=4.50920245398773, acceptance_rate=0.701840490797546
+Greedy output comparison: 1/3 completions differ.
+Differing prompt numbers (1-based): [1]
+```
+
+The three required counter names match `SPEC_COUNTERS`; no rename was needed.
+These are genuine acceptance measurements from the three raw math prompts in
+`config/check.json`, not GSM8K benchmark results. Prompt 1 asks `What is 17 + 25?`.
+The comparison is over complete strings, and the differing strings have not yet
+been inspected to determine whether their numeric answers also differ.
+
+Validation stopped at this gate, following the requested stop-on-failure rule.
+Neither the 20-prompt nor the 200-prompt GSM8K runs, accuracy evaluation, or the
+real-results plot has been performed. The next step is to capture the differing
+completion strings and diagnose the disagreement without weakening the check.
+
 ## Data
 
 Use the GSM8K test split for the initial benchmark. `load_gsm8k` selects a
@@ -221,9 +245,10 @@ returns counters without the Prometheus `_total` suffix:
 Following [vLLM's formulas](https://github.com/vllm-project/vllm/blob/v0.32.0/vllm/v1/spec_decode/metrics.py),
 mean acceptance length is `1 + accepted / drafts` (including the bonus token),
 and acceptance rate is `accepted / draft_tokens` as a fraction. Missing metrics
-or zero denominators produce `null`. The API was checked against upstream
-source; no local vLLM installation was available to validate the installed API
-or measure an actual mismatch count. Validate and pin the team's GPU version.
+or zero denominators produce `null`. The installed vLLM 0.32.0 API was validated
+on the RTX 5070: counters were available and acceptance values were numeric.
+The observed mismatch count and exact environment are recorded in the tested
+GPU setup above.
 
 ## Results
 
