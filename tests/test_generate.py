@@ -91,6 +91,20 @@ def test_sampled_parameters_and_label(fake_vllm, speculative, label):
         assert stats["acceptance_rate"] == pytest.approx(0.6)
 
 
+def test_probabilistic_draft_is_forwarded_with_target_sampling(fake_vllm):
+    config, module, llm = fake_vllm
+    config.update(temperature=1.0, top_p=1.0, draft_model="draft",
+                  num_speculative_tokens=5, draft_sample_method="probabilistic")
+    llm.get_metrics.side_effect = [counters(0, 0, 0), counters(4, 20, 12)]
+    _, stats = generate.run_generation(["one", "two"], config)
+    assert module.LLM.call_args.kwargs["speculative_config"] == {
+        "model": "draft", "num_speculative_tokens": 5,
+        "draft_sample_method": "probabilistic",
+    }
+    assert module.SamplingParams.call_args.kwargs["temperature"] == 1.0
+    assert stats["config"] == "specdec_sample"
+
+
 # Distinguish unavailable metrics and unused speculation from measured rejection.
 @pytest.mark.parametrize("case", ["missing_api", "unsupported_api", "missing_counter", "zero"])
 def test_unavailable_acceptance_is_null(fake_vllm, case):

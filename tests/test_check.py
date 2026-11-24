@@ -43,7 +43,9 @@ def fake_processes(monkeypatch):
 
 # Count full-string differences; do not normalize away whitespace or explanations.
 @pytest.mark.parametrize("spec_outputs, count", [(["42", "7"], 0), (["42", "7 "], 1)])
-def test_correctness_count_and_configs(fake_processes, monkeypatch, capsys, spec_outputs, count):
+@pytest.mark.parametrize("draft_method", [None, "probabilistic"])
+def test_correctness_count_and_configs(fake_processes, monkeypatch, capsys, spec_outputs, count,
+                                       draft_method):
     runs, lifecycle = fake_processes
 
     def generate(prompts, config):
@@ -54,13 +56,15 @@ def test_correctness_count_and_configs(fake_processes, monkeypatch, capsys, spec
     config = {"target_model": "target", "draft_model": "draft",
               "num_speculative_tokens": 5, "temperature": 0.8,
               "seed": 0, "max_tokens": 512, "n_prompts": 200}
+    if draft_method is not None:
+        config["draft_sample_method"] = draft_method
     original = config.copy()
     assert check.check_correctness(["one", "two"], config) == count
     assert config == original
     assert lifecycle == ["start", "join", "start", "join"]
     baseline, speculative = [run_config for _, run_config in runs]
     assert baseline == {key: value for key, value in speculative.items()
-                        if key not in ("draft_model", "num_speculative_tokens")}
+                        if key not in ("draft_model", "num_speculative_tokens", "draft_sample_method")}
     assert speculative == dict(original, temperature=0.0, n_prompts=2)
     assert all(prompts == ["one", "two"] for prompts, _ in runs)
     assert f"{count}/2 completions differ" in capsys.readouterr().out

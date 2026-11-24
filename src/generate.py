@@ -3,6 +3,10 @@
 
 from time import perf_counter
 from typing import Any
+import os
+
+
+DRAFT_CONFIG_KEYS = ("draft_model", "num_speculative_tokens", "draft_sample_method")
 
 
 # Names returned by vLLM's V1 metrics reader (without Prometheus's _total suffix).
@@ -44,7 +48,8 @@ def run_generation(prompts: list[str], config: dict) -> tuple[list[str], dict]:
     """Generate one completion per prompt using the supplied JSON config.
 
     Use target_model, temperature, top_p (default 1.0), max_tokens, and seed. If draft_model
-    is present, enable speculative decoding with num_speculative_tokens;
+    is present, enable speculative decoding with num_speculative_tokens and
+    optionally draft_sample_method (vLLM 0.32.0 defaults to greedy proposals);
     otherwise run the baseline. Return completions in input order and a
     statistics record matching this schema:
 
@@ -86,6 +91,7 @@ def run_generation(prompts: list[str], config: dict) -> tuple[list[str], dict]:
     from vllm import LLM, SamplingParams
 
     print(f"vLLM version: {vllm.__version__}", flush=True)
+    print(f"VLLM_BATCH_INVARIANT={os.environ.get('VLLM_BATCH_INVARIANT', '0')}", flush=True)
     speculative = "draft_model" in config
     llm_args = {
         "model": config["target_model"],
@@ -101,6 +107,9 @@ def run_generation(prompts: list[str], config: dict) -> tuple[list[str], dict]:
             "model": config["draft_model"],
             "num_speculative_tokens": config["num_speculative_tokens"],
         }
+        if "draft_sample_method" in config:
+            llm_args["speculative_config"]["draft_sample_method"] = config["draft_sample_method"]
+        print(f"Draft sampling method: {config.get('draft_sample_method', 'greedy')}", flush=True)
     llm = LLM(**llm_args)
     sampling = SamplingParams(
         temperature=config["temperature"],

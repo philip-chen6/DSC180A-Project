@@ -82,8 +82,13 @@ def test_sampled_eval_aborts_after_failed_child(tmp_path, monkeypatch):
 
 
 @pytest.mark.parametrize("omit_baseline_top_p", [False, True])
-def test_sampled_eval_cli_scores_both_and_releases_engines(tmp_path, omit_baseline_top_p):
+@pytest.mark.parametrize("draft_method", [None, "probabilistic"])
+def test_sampled_eval_cli_scores_both_and_releases_engines(tmp_path, omit_baseline_top_p, draft_method):
     baseline, speculative = _sample_pair(tmp_path)
+    if draft_method is not None:
+        config = json.loads(speculative.read_text())
+        config["draft_sample_method"] = draft_method
+        speculative.write_text(json.dumps(config))
     if omit_baseline_top_p:
         config = json.loads(baseline.read_text())
         config.pop("top_p")

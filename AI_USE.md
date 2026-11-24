@@ -68,3 +68,12 @@ use one completion per question at concurrency one, without an RL training
 loop. Small sampled accuracy differences do not establish a distributional
 change, and the heuristic answer parser remains a validation limitation.
 
+At Philip's direction, Codex subsequently separated performance execution
+from the greedy correctness profile: the activation helper defaults to normal
+vLLM execution, while `check` enables batch invariance for the exact comparison.
+It added forwarding for probabilistic draft proposals without changing target
+sampling, and updated paired evaluation and correctness config filtering.
+All 83 CPU tests passed, including proposal forwarding, sampled paired
+evaluation, and restoration of the benchmark environment after `check`.
+Earlier GPU results retain their batch-invariant, greedy-proposal provenance.
+

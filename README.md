@@ -170,12 +170,17 @@ The four original 1.5B benchmark configs retain 200 prompts and use
 `gpu_memory_utilization=0.55`, `max_model_len=2048`, and `max_num_seqs=1`.
 The shared limits leave VRAM for the Windows desktop and use the same context
 and request concurrency in both modes. The standalone draft smoke test used
-`gpu_memory_utilization=0.65` and eager execution. The activation helper defaults
-`VLLM_BATCH_INVARIANT=1` for both benchmark modes. In vLLM 0.32.0 this selects
-batch-invariant kernels, disables torch.compile, and enables breakable CUDA
-graphs. Reported throughput is for this reproducible mode. Set the variable to
-`0` before sourcing the helper only when intentionally measuring default-kernel
-performance; exact greedy agreement is not guaranteed in that mode.
+`gpu_memory_utilization=0.65` and eager execution. The activation helper now
+defaults `VLLM_BATCH_INVARIANT=0` for vLLM's normal optimized benchmark execution.
+The `check` target separately enables batch invariance for its strict greedy
+comparison and restores the caller's environment afterward. In vLLM 0.32.0 on
+this GPU, batch invariance selects consistent kernels, disables torch.compile,
+and enables breakable CUDA graphs. Earlier measured tables explicitly used
+`VLLM_BATCH_INVARIANT=1`; export that value before running their commands to
+reproduce that execution profile. Exact greedy agreement is not guaranteed
+with default kernels. Both arms of a performance comparison must use the same
+execution profile; enabling default optimizations does not guarantee a larger
+speculative speedup.
 The earlier greedy preflight used a 0.7 memory budget. Fresh idle-GPU runs use
 0.55 in every mode because the Windows desktop was consuming about 3.5 GB of
 VRAM before model startup; the lower budget leaves more room for those allocations.
@@ -223,6 +228,13 @@ The greedy configs (`config/baseline.json`, `config/specdec.json`) default to
 configs (`config/baseline_sample.json`, `config/specdec_sample.json`) retain the
 same settings except for temperature 1.0 and top_p 1.0. Speculative decoding
 defaults to 5 draft tokens. `top_p` defaults to 1.0 when absent from a config.
+`draft_sample_method` is forwarded to vLLM when supplied. In the pinned vLLM
+0.32.0, omitting it selects greedy draft proposals, even with a sampled target.
+Set it to `"probabilistic"` to sample draft proposals and retain their full
+probabilities for the standard acceptance-ratio and residual-correction rule.
+Both proposal methods preserve the target sampling distribution in the
+algorithm; they can differ in acceptance, memory use, and throughput. The
+earlier sampled tables used greedy draft proposals, not probabilistic ones.
 
 ## Running each target
 

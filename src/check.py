@@ -8,7 +8,7 @@ import os
 from pathlib import Path
 from tempfile import TemporaryDirectory
 
-from src.generate import run_generation
+from src.generate import DRAFT_CONFIG_KEYS, run_generation
 
 
 # Save outputs in a child process so exiting releases the entire GPU engine.
@@ -47,8 +47,8 @@ def check_correctness(prompts: list[str], config: dict, report_path: str | None 
         for mode in ("baseline", "specdec"):
             run_config = dict(config, temperature=0.0, n_prompts=len(prompts))
             if mode == "baseline":
-                run_config.pop("draft_model")
-                run_config.pop("num_speculative_tokens", None)
+                for key in DRAFT_CONFIG_KEYS:
+                    run_config.pop(key, None)
             path = Path(directory) / f"{mode}.json"
             print(f"Greedy check: running {mode} on {len(prompts)} prompts", flush=True)
             process = context.Process(

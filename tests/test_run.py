@@ -1,6 +1,7 @@
 """CPU coverage for custom benchmark configs and speculative evaluation."""
 
 import json
+import os
 from unittest.mock import Mock
 from types import SimpleNamespace
 import sys
@@ -44,3 +45,19 @@ def test_reject_wrong_generation_mode(tmp_path, monkeypatch, target, config):
     with pytest.raises(ValueError, match="requires a config"):
         run.main([target, "--config", "custom.json"])
     generation.assert_not_called()
+
+
+@pytest.mark.parametrize("original", [None, "0", "1"])
+def test_check_uses_batch_invariance_without_changing_benchmark_environment(monkeypatch, original):
+    if original is None:
+        monkeypatch.delenv("VLLM_BATCH_INVARIANT", raising=False)
+    else:
+        monkeypatch.setenv("VLLM_BATCH_INVARIANT", original)
+
+    def compare(prompts, config, report_path):
+        assert os.environ["VLLM_BATCH_INVARIANT"] == "1"
+        return 0
+
+    monkeypatch.setattr(run, "check_correctness", compare)
+    assert run.main(["check"]) == 0
+    assert os.environ.get("VLLM_BATCH_INVARIANT") == original

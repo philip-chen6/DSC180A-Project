@@ -22,5 +22,6 @@ if [[ -f /usr/lib/wsl/lib/libcuda.so ]]; then
     export LIBRARY_PATH="/usr/lib/wsl/lib:$LIBRARY_PATH"
 fi
 export VLLM_WORKER_MULTIPROC_METHOD=spawn
-# Keep target arithmetic consistent between single-token decode and verification.
-export VLLM_BATCH_INVARIANT="${VLLM_BATCH_INVARIANT:-1}"
+# Use vLLM's default optimized execution for timings. run.py check enables
+# batch invariance separately for its strict greedy comparison.
+export VLLM_BATCH_INVARIANT="${VLLM_BATCH_INVARIANT:-0}"

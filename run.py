@@ -10,7 +10,7 @@ from tempfile import TemporaryDirectory
 
 from src.check import check_correctness
 from src.data import format_prompt, load_gsm8k
-from src.generate import run_generation
+from src.generate import DRAFT_CONFIG_KEYS, run_generation
 from src.metrics import plot_comparison, save_results
 from src.reward import reward
 
@@ -33,7 +33,7 @@ def _evaluate_sampled_pair(baseline_path: Path, specdec_path: Path,
     if baseline["temperature"] <= 0 or speculative["temperature"] <= 0:
         raise ValueError("eval_sample requires positive sampling temperatures")
     expected_baseline = {key: value for key, value in speculative.items()
-                         if key not in ("draft_model", "num_speculative_tokens")}
+                         if key not in DRAFT_CONFIG_KEYS}
     expected_baseline.setdefault("top_p", 1.0)
     if dict(baseline, top_p=baseline.get("top_p", 1.0)) != expected_baseline:
         raise ValueError("Sampled evaluation configs must match except for draft settings")
@@ -125,7 +125,17 @@ def main(argv: list[str] | None = None) -> int:
             with (ROOT / "config/check.json").open() as file:
                 prompts = json.load(file)["prompts"]
             report_path = str(ROOT / args.outputs) if args.outputs else None
-            return int(check_correctness(prompts, config, report_path=report_path) > 0)
+            # Exact greedy checks need consistent arithmetic across decode shapes.
+            previous = os.environ.get("VLLM_BATCH_INVARIANT")
+            os.environ["VLLM_BATCH_INVARIANT"] = "1"
+            print("Greedy correctness check: VLLM_BATCH_INVARIANT=1", flush=True)
+            try:
+                return int(check_correctness(prompts, config, report_path=report_path) > 0)
+            finally:
+                if previous is None:
+                    os.environ.pop("VLLM_BATCH_INVARIANT", None)
+                else:
+                    os.environ["VLLM_BATCH_INVARIANT"] = previous
 
         examples = load_gsm8k("test", config["n_prompts"], config["seed"])
 
