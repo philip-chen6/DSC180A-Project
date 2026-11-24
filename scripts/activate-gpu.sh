@@ -22,3 +22,5 @@ if [[ -f /usr/lib/wsl/lib/libcuda.so ]]; then
     export LIBRARY_PATH="/usr/lib/wsl/lib:$LIBRARY_PATH"
 fi
 export VLLM_WORKER_MULTIPROC_METHOD=spawn
+# Keep target arithmetic consistent between single-token decode and verification.
+export VLLM_BATCH_INVARIANT="${VLLM_BATCH_INVARIANT:-1}"

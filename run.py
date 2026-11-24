@@ -2,6 +2,7 @@
 
 import argparse
 import json
+import os
 from pathlib import Path
 import subprocess
 import sys
@@ -19,11 +20,11 @@ TARGETS = ("baseline", "specdec", "eval", "plot", "test", "check")
 
 # Load the selected config and call the corresponding library functions.
 def main(argv: list[str] | None = None) -> int:
-    """Run one target; report unfinished stubs with a nonzero exit code."""
+    """Run one benchmark, evaluation, plotting, or validation target."""
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("target", nargs="?", choices=TARGETS)
     parser.add_argument("--config", type=Path, help="JSON config, relative to the repo root")
-    parser.add_argument("--outputs", type=Path, help="Save questions, gold answers, and completions as JSON")
+    parser.add_argument("--outputs", type=Path, help="Save exact completions and run settings as JSON")
     args = parser.parse_args(argv)
     if args.target is None:
         parser.print_help()
@@ -46,6 +47,7 @@ def main(argv: list[str] | None = None) -> int:
                 print(
                     "No results/results.json found; plotting results/fake_data.json."
                 )
+            print(f"Plot input: {results_path}")
             plot_comparison(
                 str(results_path),
                 str(ROOT / "results/comparison.png"),
@@ -87,6 +89,7 @@ def main(argv: list[str] | None = None) -> int:
             output_path.parent.mkdir(parents=True, exist_ok=True)
             output_path.write_text(json.dumps({
                 "config": config, "stats": stats,
+                "runtime": {"VLLM_BATCH_INVARIANT": os.environ.get("VLLM_BATCH_INVARIANT", "0")},
                 "examples": [dict(example, completion=completion)
                              for example, completion in zip(examples, completions, strict=True)],
             }, indent=2), encoding="utf-8")

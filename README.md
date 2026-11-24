@@ -17,9 +17,9 @@ baseline. RL training comes later.
 and speculative generation, timing, acceptance metric extraction, result
 saving, plotting, and a greedy output comparison command are implemented.
 Accuracy evaluation supports both baseline and speculative configs.
-All 62 CPU tests and a real RTX 5070 vLLM smoke test pass. The GPU greedy
-comparison currently reports 1/3 exact completion strings different; GSM8K
-benchmark runs are pending investigation of that correctness gate.
+All 63 CPU tests and a real RTX 5070 vLLM smoke test pass. The GPU greedy
+comparison passes with 0/3 differences in two consecutive batch-invariant runs.
+Small and full GSM8K benchmark validation is in progress.
 
 | Owner | Files |
 | --- | --- |
@@ -73,8 +73,8 @@ stack. Official benchmark results will be collected on the RTX 5070.
 The GPU smoke test passed on November 23, 2026 with the following setup.
 The original PyTorch/vLLM pins installed successfully. Compiler dependencies
 were aligned with the CUDA 13.0 runtime; no GPU driver or system CUDA
-installation was changed. The greedy check completed but failed its exact-output
-gate, so the small and full GSM8K benchmarks have not been run.
+installation was changed. The greedy check now passes with batch-invariant
+execution enabled in both modes.
 
 | Component | Tested value |
 | --- | --- |
@@ -91,7 +91,7 @@ gate, so the small and full GSM8K benchmarks have not been run.
 
 PyTorch reports `sm_120` among its compiled architectures. A CUDA matrix multiply
 passed, and vLLM generated `Hello! How can I assist you today?` with
-`Qwen/Qwen2.5-0.5B-Instruct`. All 62 CPU tests passed in this Linux environment.
+`Qwen/Qwen2.5-0.5B-Instruct`. All 63 CPU tests passed in this Linux environment.
 `requirements-gpu-lock.txt` records the exact installed packages and is loaded
 as constraints by `requirements.txt`.
 
@@ -153,30 +153,41 @@ Both benchmark configs retain 200 prompts and use
 `gpu_memory_utilization=0.7`, `max_model_len=2048`, and `max_num_seqs=1`.
 The shared limits leave VRAM for the Windows desktop and use the same context
 and request concurrency in both modes. The standalone draft smoke test used
-`gpu_memory_utilization=0.65` and eager execution; benchmark configs keep vLLM's
-normal compilation and CUDA graph settings.
+`gpu_memory_utilization=0.65` and eager execution. The activation helper defaults
+`VLLM_BATCH_INVARIANT=1` for both benchmark modes. In vLLM 0.32.0 this selects
+batch-invariant kernels, disables torch.compile, and enables breakable CUDA
+graphs. Reported throughput is for this reproducible mode. Set the variable to
+`0` before sourcing the helper only when intentionally measuring default-kernel
+performance; exact greedy agreement is not guaranteed in that mode.
 
 ### GPU validation outcome
 
-`python run.py check` completed both GPU modes using vLLM 0.32.0 and reported:
+An initial default-kernel `python run.py check` reported 1/3 differing strings.
+The original failed run did not preserve its completion strings. The diagnostic
+capture added afterward reproduced 0/3 differences with unchanged settings;
+both captured responses to `17 + 25` ended with 42. A token-probability trace
+showed different target probabilities across the baseline and speculative
+execution paths, including an exact top-choice tie at generated token index 24
+between `:\n\n` and ` together` after the words `the two numbers`.
+
+This is consistent with numerical sensitivity around a tied greedy choice; the
+exact divergence in the original unretained output cannot be established.
+[vLLM documents that default execution is not reproducible](https://docs.vllm.ai/en/v0.32.0/usage/reproducibility/).
+The supported [batch-invariance setting](https://docs.vllm.ai/en/v0.32.0/features/batch_invariance/)
+is enabled for both modes rather than weakening the exact-string comparison.
+Two consecutive independent checks then reported:
 
 ```text
 LLM.get_metrics() speculative names: vllm:spec_decode_num_accepted_tokens, vllm:spec_decode_num_accepted_tokens_per_pos, vllm:spec_decode_num_draft_tokens, vllm:spec_decode_num_drafts
-Acceptance metrics: mean_acceptance_length=4.50920245398773, acceptance_rate=0.701840490797546
-Greedy output comparison: 1/3 completions differ.
-Differing prompt numbers (1-based): [1]
+Acceptance metrics: mean_acceptance_length=4.1, acceptance_rate=0.62
+Greedy output comparison: 0/3 completions differ.
 ```
 
 The three required counter names match `SPEC_COUNTERS`; no rename was needed.
 These are genuine acceptance measurements from the three raw math prompts in
-`config/check.json`, not GSM8K benchmark results. Prompt 1 asks `What is 17 + 25?`.
-The comparison is over complete strings, and the differing strings have not yet
-been inspected to determine whether their numeric answers also differ.
-
-Validation stopped at this gate, following the requested stop-on-failure rule.
-Neither the 20-prompt nor the 200-prompt GSM8K runs, accuracy evaluation, or the
-real-results plot has been performed. The next step is to capture the differing
-completion strings and diagnose the disagreement without weakening the check.
+`config/check.json`, not GSM8K benchmark results. `check --outputs <path>` now
+retains prompts and both exact completion strings, including failures. The
+reports and benchmark output archives record `VLLM_BATCH_INVARIANT` explicitly.
 
 ## Data
 
@@ -208,6 +219,7 @@ Use `--config <path>` with `baseline`, `specdec`, `eval`, or `check` to select
 a config copy without changing the originals. Use `--outputs <path>` with
 generation or evaluation to save questions, gold answers, exact completions,
 the config, and run statistics for inspection.
+With `check`, `--outputs` instead saves the exact baseline/speculative comparison.
 
 `baseline`, `specdec`, and `eval` require the full dependencies, a model
 download, and a working GPU runtime. They load GSM8K, format prompts, run

@@ -11,6 +11,7 @@ import run
 
 
 def test_eval_speculative_config(tmp_path, monkeypatch):
+    monkeypatch.setenv("VLLM_BATCH_INVARIANT", "1")
     config = {"target_model": "target", "draft_model": "draft", "n_prompts": 2,
               "seed": 0, "results_path": "results/results.json"}
     (tmp_path / "custom.json").write_text(json.dumps(config))
@@ -29,6 +30,7 @@ def test_eval_speculative_config(tmp_path, monkeypatch):
     assert generation.call_args.args == (["one", "two"], config)
     assert save.call_args.args[0] == {"config": "specdec", "accuracy": 0.5}
     outputs = json.loads((tmp_path / "results/outputs.json").read_text())
+    assert outputs["runtime"] == {"VLLM_BATCH_INVARIANT": "1"}
     assert outputs["examples"][1] == {"question": "two", "answer": "7", "completion": "#### 8"}
     assert json.loads((tmp_path / "custom.json").read_text()) == config
 

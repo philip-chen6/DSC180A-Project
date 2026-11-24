@@ -75,12 +75,14 @@ def test_missing_completion_aborts(fake_processes, monkeypatch, capsys):
 
 
 def test_report_retains_exact_mismatch(fake_processes, monkeypatch, tmp_path):
+    monkeypatch.setenv("VLLM_BATCH_INVARIANT", "1")
     monkeypatch.setattr(check, "run_generation", lambda prompts, config: (
         ["42\n" if "draft_model" in config else "42"], {}))
     report_path = tmp_path / "reports" / "check.json"
     assert check.check_correctness(["math"], {"draft_model": "draft"}, str(report_path)) == 1
     report = json.loads(report_path.read_text())
     assert report["n_different"] == 1
+    assert report["runtime"] == {"VLLM_BATCH_INVARIANT": "1"}
     assert report["comparisons"] == [
         {"prompt": "math", "baseline": "42", "specdec": "42\n", "match": False}]
 

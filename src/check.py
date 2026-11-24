@@ -4,6 +4,7 @@
 from importlib.util import find_spec
 import json
 import multiprocessing
+import os
 from pathlib import Path
 from tempfile import TemporaryDirectory
 
@@ -83,7 +84,9 @@ def check_correctness(prompts: list[str], config: dict, report_path: str | None 
         report = Path(report_path)
         report.parent.mkdir(parents=True, exist_ok=True)
         report.write_text(json.dumps({
-            "config": config, "n_different": len(different),
+            "config": dict(config, temperature=0.0, n_prompts=len(prompts)),
+            "runtime": {"VLLM_BATCH_INVARIANT": os.environ.get("VLLM_BATCH_INVARIANT", "0")},
+            "n_different": len(different),
             "comparisons": [
                 {"prompt": prompt, "baseline": baseline, "specdec": specdec,
                  "match": baseline == specdec}

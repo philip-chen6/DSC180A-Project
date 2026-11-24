@@ -76,8 +76,7 @@ def run_generation(prompts: list[str], config: dict) -> tuple[list[str], dict]:
 
     Reject an empty prompt list. Import vllm lazily; importing this module
     does not download weights or initialize a GPU. The V1 metrics API was
-    checked against upstream source; it still requires validation against
-    the team's installed GPU environment.
+    validated with vLLM 0.32.0 on the team's RTX 5070 GPU environment.
     """
     if not prompts:
         raise ValueError("run_generation requires at least one prompt.")
@@ -112,7 +111,7 @@ def run_generation(prompts: list[str], config: dict) -> tuple[list[str], dict]:
     completions = []
     latencies = []
     output_lengths = []
-    for prompt in prompts:
+    for index, prompt in enumerate(prompts, start=1):
         start = perf_counter()
         outputs = llm.generate([prompt], sampling, use_tqdm=False)
         latencies.append(perf_counter() - start)
@@ -121,6 +120,8 @@ def run_generation(prompts: list[str], config: dict) -> tuple[list[str], dict]:
         completion = outputs[0].outputs[0]
         completions.append(completion.text)
         output_lengths.append(len(completion.token_ids))
+        if index % 10 == 0 or index == len(prompts):
+            print(f"Generation progress: {index}/{len(prompts)} prompts", flush=True)
 
     mean_acceptance_length = None
     acceptance_rate = None
