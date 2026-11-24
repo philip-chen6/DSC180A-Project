@@ -19,8 +19,8 @@ saving, plotting, and a greedy output comparison command are implemented.
 Accuracy evaluation supports both baseline and speculative configs.
 All 75 CPU tests and a real RTX 5070 vLLM smoke test pass. The GPU greedy
 comparison passes with 0/3 differences in two consecutive batch-invariant runs.
-The 20-prompt greedy GSM8K preflight passed. Sampled GPU validation and clean
-full-run timings are pending an idle GPU; timed runs are paused during gaming.
+The matched 20-prompt greedy and sampled GPU preflights passed. Clean full
+200-prompt greedy generation/evaluation runs are in progress with Valorant closed.
 
 | Owner | Files |
 | --- | --- |
@@ -325,7 +325,36 @@ GPU setup above.
 
 ## Results
 
-### Greedy GPU preflight (20 prompts)
+### Idle-GPU greedy and sampled comparison (20 prompts)
+
+Fresh runs after Valorant closed used the same 20 questions, seed 0, 512-token
+output limit, 2,048-token context, and 0.55 GPU memory budget. Both decoding
+regimes used `VLLM_BATCH_INVARIANT=1`. The final evaluation records were:
+
+| Mode | Temperature | Tokens/sec | Mean latency (s) | Mean output tokens | Mean acceptance length | Acceptance rate | Accuracy |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
+| `baseline` | 0 | 57.59 | 2.830 | 163.0 | n/a | n/a | 65% (13/20) |
+| `specdec` | 0 | 65.65 | 2.483 | 163.0 | 4.653 | 73.06% | 65% (13/20) |
+| `baseline_sample` | 1 | 59.92 | 2.924 | 175.2 | n/a | n/a | 70% (14/20) |
+| `specdec_sample` | 1 | 50.71 | 3.348 | 169.8 | 3.597 | 51.95% | 60% (12/20) |
+
+Observed throughput ratios were 1.14x for greedy speculation and 0.85x for
+sampled speculation. Sampling therefore reduced acceptance and produced a
+slowdown for this model pair in this preflight. These are single-seed,
+20-question measurements, not a statistical claim about accuracy or a maximum
+hardware throughput claim. Sampled output lengths also differed, so latency
+includes that difference in generated work.
+
+All 20 greedy completion strings matched. All 20 sampled completion strings
+differed across baseline/speculative modes, which is allowed under sampling.
+Within each sampled mode, the generation-only and evaluation reruns reproduced
+the exact same strings. Accuracy was independently recomputed from each saved
+completion, and metric ranges, prompt/gold alignment, and runtime settings were
+checked. `results/idle-preflight-summary.json` records the audited table; full
+output archives use the `results/idle-*` prefix. All raw records remain appended
+in `results/results.json`.
+
+### Earlier greedy GPU preflight (20 prompts)
 
 Both modes and both `eval` reruns produced identical completion strings for all
 20 questions. The final evaluation records in `results/results.json` are:
@@ -341,10 +370,10 @@ The accuracy scores were checked against the saved completions, including
 manual inspection of responses that did not follow the requested `####` format.
 No teammate-owned data, reward, or metrics logic was changed.
 
-The sampled implementation is CPU-tested; its real GPU measurements are still
-pending the requested pause while Valorant is active. A later 200-prompt greedy
-baseline completed under concurrent gaming load and must be rerun for a clean
-timing comparison. Do not treat that exploratory record as an uncontended result.
+The earlier preflight used a 0.7 GPU memory budget and is superseded by the
+matched idle-GPU table above. A later 200-prompt greedy baseline completed under
+concurrent gaming load and is excluded from clean timing comparisons. Its
+exploratory record is preserved in the append-only results history.
 
 Create the preflight configs without changing the originals, from the Ubuntu
 repo root after activating the GPU environment:
