@@ -373,10 +373,19 @@ MPLBACKEND=Agg python run.py plot
 
 ### Full sampled GPU suite (200 prompts)
 
-The full sampled suite is in progress on the same 200 questions as the greedy
-runs. It retains temperature 1.0, top_p 1.0, seed 0, the 512-token output limit,
-2,048-token context, 0.55 memory budget, and batch-invariant execution. Run it
-from the activated Ubuntu GPU environment:
+Both sampled generation runs completed on the same 200 questions as the greedy
+runs. They retain temperature 1.0, top_p 1.0, seed 0, the 512-token output limit,
+2,048-token context, 0.55 memory budget, and batch-invariant execution. The
+generation-only measurements and independently recomputed scores were:
+
+| Mode | Tokens/sec | Mean latency (s) | Mean acceptance length | Acceptance rate | Accuracy from saved answers |
+| --- | ---: | ---: | ---: | ---: | ---: |
+| `baseline_sample` | 70.31 | 2.518 | n/a | n/a | 57% (114/200) |
+| `specdec_sample` | 56.85 | 3.018 | 3.610 | 52.20% | 52.5% (105/200) |
+
+The measured throughput ratio was 0.81x. The separate accuracy evaluation
+reruns are in progress. The single-seed accuracy gap does not establish a
+distributional change. Run the suite from the activated Ubuntu GPU environment:
 
 ```bash
 python run.py baseline_sample --outputs results/idle-baseline-sample-200.json
