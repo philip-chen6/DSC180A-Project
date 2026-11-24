@@ -1,0 +1,13 @@
+{
+  "target_model": "Qwen/Qwen2.5-3B-Instruct",
+  "temperature": 1.0,
+  "top_p": 1.0,
+  "max_tokens": 512,
+  "n_prompts": 200,
+  "seed": 0,
+  "gpu_memory_utilization": 0.7,
+  "max_model_len": 2048,
+  "max_num_seqs": 1,
+  "enforce_eager": false,
+  "results_path": "results/target3b_sample_optimized/results.json"
+}

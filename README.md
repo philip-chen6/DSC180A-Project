@@ -236,6 +236,45 @@ Both proposal methods preserve the target sampling distribution in the
 algorithm; they can differ in acceptance, memory use, and throughput. The
 earlier sampled tables used greedy draft proposals, not probabilistic ones.
 
+## Recommended sampled benchmark
+
+The main sampling comparison uses the 3B target and 0.5B draft in BF16 with
+vLLM's default optimized execution. Both arms sample at temperature 1.0 and
+top_p 1.0; the speculative arm also samples its draft proposals using
+`draft_sample_method="probabilistic"`. This follows the full-probability
+proposal and correction algorithm, rather than vLLM's greedy-proposal default.
+See [vLLM's proposal options](https://docs.vllm.ai/en/v0.32.0/api/vllm/config/speculative/#vllm.config.speculative.SpeculativeConfig.draft_sample_method).
+
+The matched configs are `config/experiments/baseline_sample_3b_optimized.json`
+and `config/experiments/specdec_sample_3b_optimized.json`: 200 questions, seed 0,
+512 output tokens, 2,048 context tokens, concurrency one, a 0.7 memory budget,
+and five draft tokens for speculation. `enforce_eager=false` leaves compilation
+and CUDA graph optimizations available. Existing configs and historical results
+are retained; this profile writes to `results/target3b_sample_optimized/`.
+
+From the Ubuntu repo root with the GPU venv activated:
+
+```bash
+export VLLM_BATCH_INVARIANT=0
+source scripts/activate-gpu.sh
+python run.py test
+# check temporarily uses batch-invariant, greedy execution, separate from timings.
+python run.py check --config config/experiments/specdec_sample_3b_optimized.json --outputs results/target3b_sample_optimized/greedy-check.json
+# Each eval measures generation and scores that same set of completions once.
+python run.py eval --config config/experiments/baseline_sample_3b_optimized.json --outputs results/target3b_sample_optimized/baseline-200.json
+python run.py eval --config config/experiments/specdec_sample_3b_optimized.json --outputs results/target3b_sample_optimized/specdec-200.json
+MPLBACKEND=Agg python -c 'from src.metrics import plot_comparison; plot_comparison("results/target3b_sample_optimized/results.json", "results/target3b_sample_optimized/comparison-200.png")'
+```
+
+Use copies with `n_prompts=20` for a preflight. The saved output archives record
+the config, runtime batch-invariance flag, completions, accuracy, and timings.
+The strict greedy check is a separate diagnostic; sampled strings can differ
+between modes, and finite accuracy differences do not prove a distributional
+change. This profile changes both proposal strategy and execution settings, so
+comparison against the earlier tables does not isolate either change's effect.
+Optimized execution and probabilistic drafting must be measured before drawing
+new performance conclusions.
+
 ## Running each target
 
 ```bash
