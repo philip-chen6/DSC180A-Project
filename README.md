@@ -24,6 +24,8 @@ The matched 20-prompt greedy and sampled GPU preflights passed. Clean full
 exact-string differences and 71.5% accuracy in both modes. Plots were generated
 from real results. All four modes now have matched 200-prompt generation and
 evaluation results, including sampling at temperature 1.0 and top_p 1.0.
+A larger 3B target achieved 1.30x sampled throughput in a 20-question preflight;
+its 200-question confirmation is in progress.
 
 | Owner | Files |
 | --- | --- |
@@ -417,20 +419,46 @@ To test whether a larger target makes the draft cost easier to amortize,
 `config/experiments/baseline_sample_3b.json` and
 `config/experiments/specdec_sample_3b.json` use
 `Qwen/Qwen2.5-3B-Instruct` with the existing 0.5B draft. The initial preflight
-uses 20 questions, temperature 1.0, top_p 1.0, seed 0, five draft tokens,
+used 20 questions, temperature 1.0, top_p 1.0, seed 0, five draft tokens,
 512 maximum output tokens, and the same 2,048-token context and concurrency one.
 Both modes use a 0.70 GPU memory budget and `VLLM_BATCH_INVARIANT=1`.
 
 The new pair loaded successfully on the RTX 5070: vLLM reported 6.73 GiB of
 model memory and 1.31 GiB available for KV cache. Its greedy correctness gate
-passed with 0/3 differing strings. The sampled evaluation preflight is running.
-It writes to `results/target3b_sample/results.json`, so model sizes do not share
-the original benchmark history. Reproduce it from the activated GPU shell:
+passed with 0/3 differing strings. The sampled preflight completed:
+
+| Mode | Tokens/sec | Mean latency (s) | Mean output tokens | Mean acceptance length | Acceptance rate | Accuracy |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: |
+| 3B sampled baseline | 39.78 | 4.962 | 197.4 | n/a | n/a | 65% (13/20) |
+| 3B sampled specdec | 51.58 | 3.358 | 173.2 | 3.587 | 51.74% | 80% (16/20) |
+
+The measured throughput ratio was 1.30x. This is a speedup against the same 3B
+target's baseline, not a comparison of absolute speed across target sizes.
+The small sampled accuracy difference does not establish a quality improvement.
+The committed experiment profiles now use 200 questions for confirmation.
+Both sizes write separate result histories: the 3B pair uses
+`results/target3b_sample/results.json`. Reproduce the 20-question preflight from
+the activated GPU shell using copies:
 
 ```bash
+mkdir -p .cache/gpu-validation
+python - <<'PY'
+import json
+from pathlib import Path
+for mode in ('baseline', 'specdec'):
+    config = json.loads(Path(f'config/experiments/{mode}_sample_3b.json').read_text())
+    config['n_prompts'] = 20
+    Path(f'.cache/gpu-validation/{mode}_sample_3b-20.json').write_text(json.dumps(config, indent=2))
+PY
 python run.py check --config config/experiments/specdec_sample_3b.json --outputs results/target3b_sample/greedy-check.json
-python run.py eval --config config/experiments/baseline_sample_3b.json --outputs results/target3b_sample/baseline-20.json
-python run.py eval --config config/experiments/specdec_sample_3b.json --outputs results/target3b_sample/specdec-20.json
+python run.py eval --config .cache/gpu-validation/baseline_sample_3b-20.json --outputs results/target3b_sample/baseline-20.json
+python run.py eval --config .cache/gpu-validation/specdec_sample_3b-20.json --outputs results/target3b_sample/specdec-20.json
+```
+
+The full paired evaluation is running with the committed 200-question profiles:
+
+```bash
+python run.py eval_sample --baseline-config config/experiments/baseline_sample_3b.json --specdec-config config/experiments/specdec_sample_3b.json --outputs results/target3b_sample/eval-200.json
 ```
 
 This remains fixed-weight inference and answer scoring. RL would additionally

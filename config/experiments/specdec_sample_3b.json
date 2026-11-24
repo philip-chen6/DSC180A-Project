@@ -4,7 +4,7 @@
   "temperature": 1.0,
   "top_p": 1.0,
   "max_tokens": 512,
-  "n_prompts": 20,
+  "n_prompts": 200,
   "seed": 0,
   "gpu_memory_utilization": 0.7,
   "max_model_len": 2048,
