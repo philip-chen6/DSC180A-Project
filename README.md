@@ -70,7 +70,8 @@ stack. Official benchmark results will be collected on the RTX 5070.
 ## Tested GPU setup
 
 The GPU smoke test passed on November 23, 2026 with the following setup.
-The original package pins installed successfully; no GPU driver or system CUDA
+The original PyTorch/vLLM pins installed successfully. Compiler dependencies
+were aligned with the CUDA 13.0 runtime; no GPU driver or system CUDA
 installation was changed. Full benchmark validation is in progress on this branch.
 
 | Component | Tested value |
@@ -83,6 +84,7 @@ installation was changed. Full benchmark validation is in progress on this branc
 | Python | 3.12.3 |
 | vLLM | 0.32.0 |
 | PyTorch | 2.13.0 (`torch.__version__`: `2.13.0+cu130`), CUDA runtime 13.0 |
+| Venv CUDA compiler | NVCC / CRT / NVVM 13.0.88; CCCL 13.0.85 |
 | Transformers / Datasets | 5.19.0 / 4.7.0 |
 
 PyTorch reports `sm_120` among its compiled architectures. A CUDA matrix multiply
@@ -119,10 +121,8 @@ python -m pip install --upgrade pip
 python -m pip install -r requirements.txt
 python -m pip check
 
-# Use the CUDA compiler delivered inside this venv, without system CUDA changes.
-export CUDA_HOME="$VIRTUAL_ENV/lib/python3.12/site-packages/nvidia/cu13"
-export PATH="$CUDA_HOME/bin:$PATH"
-export VLLM_WORKER_MULTIPROC_METHOD=spawn
+# Set venv compiler paths and WSL driver linking, without system CUDA changes.
+source scripts/activate-gpu.sh
 
 nvidia-smi
 python -c "import torch; print(torch.__version__, torch.version.cuda, torch.cuda.get_device_name(), torch.cuda.get_device_capability(), torch.cuda.get_arch_list())"
@@ -132,8 +132,20 @@ python run.py check
 
 The `python3.12-dev` package is required: without its `Python.h`, Triton's
 runtime C extension fails to compile during engine startup. Activate the venv
-and export the compiler paths in every new shell. Initial startup downloads
+and source `scripts/activate-gpu.sh` in every new shell. Initial startup downloads
 model weights and compiles/autotunes kernels; later starts reuse local caches.
+
+An unconstrained install selected NVCC/CRT/NVVM 13.5.37 and CCCL 13.3.5.0.6
+alongside PyTorch's CUDA 13.0 runtime headers. FlashInfer sampling JIT then
+failed with `CUDA compiler and CUDA toolkit headers are incompatible` during
+the greedy check's warmup. The explicit `cuda-toolkit[nvcc,cccl]==13.0.3.0`
+requirement and matching compiler pins in the lock fix that mismatch entirely
+inside the venv, following [NVIDIA's component versions](https://pypi.org/project/cuda-toolkit/13.0.3.0/).
+The activation helper also supplies venv-local `lib64` and `libcudart.so`
+symlinks expected by FlashInfer, and adds `/usr/lib/wsl/lib` to the compiler's
+library search path. Without these paths its JIT linker reports missing
+`-lcudart` and `-lcuda`. The FlashInfer sampling kernel was compiled and executed
+successfully after these fixes.
 
 Both benchmark configs retain 200 prompts and use
 `gpu_memory_utilization=0.7`, `max_model_len=2048`, and `max_num_seqs=1`.
