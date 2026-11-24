@@ -28,6 +28,7 @@ evaluation results, including sampling at temperature 1.0 and top_p 1.0.
 A larger 3B target achieved 1.30x sampled throughput in a 20-question preflight
 and 1.24x in the completed 200-question confirmation. All experiments so far
 use fixed model weights; no RL training has run.
+The matched 3B greedy baseline/speculative 200-question comparison is running.
 
 | Owner | Files |
 | --- | --- |
@@ -483,6 +484,17 @@ modes separately to retain each completion archive even if a later run fails:
 ```bash
 python run.py eval --config config/experiments/baseline_sample_3b.json --outputs results/target3b_sample/baseline-200.json
 python run.py eval --config config/experiments/specdec_sample_3b.json --outputs results/target3b_sample/specdec-200.json
+```
+
+The greedy counterparts, `config/experiments/baseline_3b.json` and
+`config/experiments/specdec_3b.json`, use the same 200 questions, model pair,
+seed, context, output limit, memory budget, and batch-invariant setting, with
+temperature 0. Their full comparison is in progress and writes to a separate
+history at `results/target3b_greedy/results.json`:
+
+```bash
+python run.py eval --config config/experiments/baseline_3b.json --outputs results/target3b_greedy/baseline-200.json
+python run.py eval --config config/experiments/specdec_3b.json --outputs results/target3b_greedy/specdec-200.json
 ```
 
 The final audit recomputed accuracy from all saved answers, verified alignment
