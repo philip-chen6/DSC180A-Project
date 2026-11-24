@@ -54,10 +54,14 @@ from the real results history and visually inspected.
 
 Codex then tested a 3B target with the same 0.5B draft and five-token draft
 length. A greedy correctness gate passed, and sampled evaluations on 20 and
-200 questions measured a speedup against the 3B baseline. The full run retained
+200 questions measured a speedup against the 3B baseline. A full 200-question
+greedy comparison also completed, with 0/200 string differences and 83.5%
+accuracy in both modes. The full runs retained
 per-mode completion archives, source/config checksums, audited scores, and an
 environment snapshot. Its artifacts and plots were saved in the main project
 folder; no source data, reward, or metrics logic changes were needed.
+The combined figures compare all four 3B modes and both target sizes' measured
+greedy and sampled throughput ratios.
 
 The README records the final results and reproducible setup. These experiments
 use one completion per question at concurrency one, without an RL training

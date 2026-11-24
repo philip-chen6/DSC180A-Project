@@ -9,7 +9,7 @@ decoding with vLLM on GSM8K and compare speed, acceptance, and accuracy with a
 baseline. RL training comes later.
 
 - Initial benchmark target: `Qwen/Qwen2.5-1.5B-Instruct`.
-- Validated sampled acceleration profile: `Qwen/Qwen2.5-3B-Instruct`.
+- Validated acceleration target: `Qwen/Qwen2.5-3B-Instruct`.
 - Draft: `Qwen/Qwen2.5-0.5B-Instruct` (shared tokenizer).
 - Validated hardware: one RTX 5070, 12 GB VRAM, Blackwell SM120.
   Teammates develop on their own NVIDIA GPUs.
@@ -28,7 +28,8 @@ evaluation results, including sampling at temperature 1.0 and top_p 1.0.
 A larger 3B target achieved 1.30x sampled throughput in a 20-question preflight
 and 1.24x in the completed 200-question confirmation. All experiments so far
 use fixed model weights; no RL training has run.
-The matched 3B greedy baseline/speculative 200-question comparison is running.
+The matched 3B greedy comparison also completed: 1.59x throughput, 0/200
+differing strings, and 83.5% accuracy in both modes.
 
 | Owner | Files |
 | --- | --- |
@@ -416,7 +417,7 @@ across all four modes. Package versions, model revisions, GPU capability, and
 dataset hashes matched the earlier tested environment; its snapshot is retained
 as `results/gpu-environment-before-sampled-200.json`.
 
-### Validated 3B sampled acceleration profile
+### Validated 3B greedy and sampled acceleration profiles
 
 To test whether a larger target makes the draft cost easier to amortize,
 `config/experiments/baseline_sample_3b.json` and
@@ -432,11 +433,15 @@ passed with 0/3 differing strings. The full 200-question confirmation completed:
 
 | Mode | Tokens/sec | Mean latency (s) | Mean output tokens | Mean acceptance length | Acceptance rate | Accuracy |
 | --- | ---: | ---: | ---: | ---: | ---: | ---: |
-| 3B sampled baseline | 39.97 | 5.224 | 208.81 | n/a | n/a | 80% (160/200) |
-| 3B sampled specdec | 49.69 | 4.332 | 215.29 | 3.659 | 53.19% | 83% (166/200) |
+| 3B greedy baseline | 39.71 | 5.415 | 215.045 | n/a | n/a | 83.5% (167/200) |
+| 3B greedy specdec | 63.21 | 3.402 | 215.045 | 4.613 | 72.26% | 83.5% (167/200) |
+| 3B sampled baseline | 39.97 | 5.224 | 208.810 | n/a | n/a | 80% (160/200) |
+| 3B sampled specdec | 49.69 | 4.332 | 215.290 | 3.659 | 53.19% | 83% (166/200) |
 
-Speculation achieved 1.24x throughput (24.3% higher) and 17.1% lower mean
-latency against the same 3B target's baseline. Its mean output was longer,
+Greedy speculation achieved 1.59x throughput (59.2% higher) and 37.2% lower
+mean latency. All 200 greedy completion strings matched exactly, with identical
+output lengths and accuracy. Sampled speculation achieved 1.24x throughput
+(24.3% higher) and 17.1% lower mean latency. Its mean output was longer,
 so the latency comparison also includes different amounts of generated work.
 The six-answer accuracy gap is a single-seed observation, not evidence of a
 quality improvement from speculation.
@@ -448,6 +453,17 @@ the target, although no profiler breakdown has isolated that cause. Absolute
 speed and output quality also change when switching target models. The two
 model pairs use their own matched baselines and different memory budgets:
 0.55 for the 1.5B target and 0.70 for the 3B target.
+
+Both targets' completed 200-question comparisons were:
+
+| Target / draft | Greedy throughput ratio | Sampled throughput ratio |
+| --- | ---: | ---: |
+| 1.5B / 0.5B | 1.12x | 0.81x |
+| 3B / 0.5B | 1.59x | 1.24x |
+
+Every ratio compares speculation with the baseline for the same target and
+temperature. These are fixed-weight, single-seed, concurrency-one measurements
+with batch-invariant execution, rather than end-to-end RL training timings.
 
 The earlier 20-question preflight measured:
 
@@ -489,9 +505,8 @@ python run.py eval --config config/experiments/specdec_sample_3b.json --outputs 
 The greedy counterparts, `config/experiments/baseline_3b.json` and
 `config/experiments/specdec_3b.json`, use the same 200 questions, model pair,
 seed, context, output limit, memory budget, and batch-invariant setting, with
-temperature 0. The 200-question greedy baseline completed at 39.71 tokens/sec,
-5.415 seconds mean latency, and 83.5% accuracy (167/200). The speculative
-counterpart is running. These modes write to a separate history at
+temperature 0. Both full greedy runs completed, and their measurements appear
+in the four-mode table above. These modes write to a separate history at
 `results/target3b_greedy/results.json`:
 
 ```bash
@@ -503,7 +518,8 @@ The final audit recomputed accuracy from all saved answers, verified alignment
 with the original 200 GSM8K questions, checked shared configs and metric ranges,
 and matched the latest completed history rows to their output archives. The
 two numeric sanity-check flags were valid marked final answers on inspection;
-no teammate-owned reward logic was changed. All 200 sampled strings differed
+the greedy numeric sanity check flagged no credited answers. No teammate-owned
+reward logic was changed. All 200 sampled strings differed
 between modes, which is allowed. A historical interrupted baseline entry remains
 in the append-only history; the table and plots use the latest completed pair.
 
@@ -514,6 +530,12 @@ checkpoint `c9c3cac` are in `source-manifest.json`. The environment snapshot
 records the 3B model revision `aa8e72537993ba99e69dfaafa59ed015b17504d1` and the
 unchanged package versions. Results are saved in the main project folder.
 
+`results/target3b/summary-200.json` combines the four audited 3B records, their
+throughput ratios, the 0/200 greedy mismatch count, and hashes of the two
+histories and output archives. The greedy source/config snapshot is retained
+at `results/target3b_greedy/source-manifest.json` for checkpoint `bfbcff4`.
+Package versions and both model revisions matched the sampled run's environment.
+
 The visually checked `results/target3b_sample/comparison-200.png` shows the 3B
 pair, and `results/target3b_sample/speedup-by-target.png` compares the measured
 sampling speedup for each target against its own baseline. Both use real
@@ -521,6 +543,30 @@ benchmark records. To plot the 3B profile's own result history:
 
 ```bash
 MPLBACKEND=Agg python -c "from src.metrics import plot_comparison; plot_comparison('results/target3b_sample/results.json', 'results/target3b_sample/comparison-200.png')"
+```
+
+The complete four-mode figure is `results/target3b/comparison-200.png`.
+`results/target3b/speedup-by-target-and-mode.png` compares greedy and sampled
+speedups for both target sizes. These figures were visually inspected. To
+recreate the four-mode input and plot from the real 3B histories:
+
+```bash
+MPLBACKEND=Agg python - <<'PY'
+import json
+from pathlib import Path
+from src.metrics import plot_comparison
+latest = {}
+for folder in ('target3b_greedy', 'target3b_sample'):
+    for record in json.loads(Path(f'results/{folder}/results.json').read_text()):
+        if record['n_prompts'] == 200:
+            latest[record['config']] = record
+labels = ('baseline', 'specdec', 'baseline_sample', 'specdec_sample')
+output = Path('results/target3b')
+output.mkdir(exist_ok=True)
+plot_input = output / 'plot-input-200.json'
+plot_input.write_text(json.dumps([latest[label] for label in labels], indent=2))
+plot_comparison(str(plot_input), str(output / 'comparison-200.png'))
+PY
 ```
 
 This remains fixed-weight inference and answer scoring. RL would additionally
