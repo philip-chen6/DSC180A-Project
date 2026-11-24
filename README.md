@@ -489,8 +489,10 @@ python run.py eval --config config/experiments/specdec_sample_3b.json --outputs 
 The greedy counterparts, `config/experiments/baseline_3b.json` and
 `config/experiments/specdec_3b.json`, use the same 200 questions, model pair,
 seed, context, output limit, memory budget, and batch-invariant setting, with
-temperature 0. Their full comparison is in progress and writes to a separate
-history at `results/target3b_greedy/results.json`:
+temperature 0. The 200-question greedy baseline completed at 39.71 tokens/sec,
+5.415 seconds mean latency, and 83.5% accuracy (167/200). The speculative
+counterpart is running. These modes write to a separate history at
+`results/target3b_greedy/results.json`:
 
 ```bash
 python run.py eval --config config/experiments/baseline_3b.json --outputs results/target3b_greedy/baseline-200.json
