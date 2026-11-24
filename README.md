@@ -8,7 +8,8 @@ and its acceptance rate may fall. The first milestone is to run speculative
 decoding with vLLM on GSM8K and compare speed, acceptance, and accuracy with a
 baseline. RL training comes later.
 
-- Target: `Qwen/Qwen2.5-1.5B-Instruct`.
+- Initial benchmark target: `Qwen/Qwen2.5-1.5B-Instruct`.
+- Validated sampled acceleration profile: `Qwen/Qwen2.5-3B-Instruct`.
 - Draft: `Qwen/Qwen2.5-0.5B-Instruct` (shared tokenizer).
 - Validated hardware: one RTX 5070, 12 GB VRAM, Blackwell SM120.
   Teammates develop on their own NVIDIA GPUs.
@@ -24,8 +25,9 @@ The matched 20-prompt greedy and sampled GPU preflights passed. Clean full
 exact-string differences and 71.5% accuracy in both modes. Plots were generated
 from real results. All four modes now have matched 200-prompt generation and
 evaluation results, including sampling at temperature 1.0 and top_p 1.0.
-A larger 3B target achieved 1.30x sampled throughput in a 20-question preflight;
-its 200-question confirmation is in progress.
+A larger 3B target achieved 1.30x sampled throughput in a 20-question preflight
+and 1.24x in the completed 200-question confirmation. All experiments so far
+use fixed model weights; no RL training has run.
 
 | Owner | Files |
 | --- | --- |
@@ -162,7 +164,7 @@ library search path. Without these paths its JIT linker reports missing
 `-lcudart` and `-lcuda`. The FlashInfer sampling kernel was compiled and executed
 successfully after these fixes.
 
-All four benchmark configs retain 200 prompts and use
+The four original 1.5B benchmark configs retain 200 prompts and use
 `gpu_memory_utilization=0.55`, `max_model_len=2048`, and `max_num_seqs=1`.
 The shared limits leave VRAM for the Windows desktop and use the same context
 and request concurrency in both modes. The standalone draft smoke test used
@@ -413,7 +415,7 @@ across all four modes. Package versions, model revisions, GPU capability, and
 dataset hashes matched the earlier tested environment; its snapshot is retained
 as `results/gpu-environment-before-sampled-200.json`.
 
-### Larger-target sampled experiment
+### Validated 3B sampled acceleration profile
 
 To test whether a larger target makes the draft cost easier to amortize,
 `config/experiments/baseline_sample_3b.json` and
@@ -425,17 +427,37 @@ Both modes use a 0.70 GPU memory budget and `VLLM_BATCH_INVARIANT=1`.
 
 The new pair loaded successfully on the RTX 5070: vLLM reported 6.73 GiB of
 model memory and 1.31 GiB available for KV cache. Its greedy correctness gate
-passed with 0/3 differing strings. The sampled preflight completed:
+passed with 0/3 differing strings. The full 200-question confirmation completed:
+
+| Mode | Tokens/sec | Mean latency (s) | Mean output tokens | Mean acceptance length | Acceptance rate | Accuracy |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: |
+| 3B sampled baseline | 39.97 | 5.224 | 208.81 | n/a | n/a | 80% (160/200) |
+| 3B sampled specdec | 49.69 | 4.332 | 215.29 | 3.659 | 53.19% | 83% (166/200) |
+
+Speculation achieved 1.24x throughput (24.3% higher) and 17.1% lower mean
+latency against the same 3B target's baseline. Its mean output was longer,
+so the latency comparison also includes different amounts of generated work.
+The six-answer accuracy gap is a single-seed observation, not evidence of a
+quality improvement from speculation.
+
+For comparison, the 1.5B sampled pair achieved 0.81x throughput with 52.20%
+acceptance. The 3B pair achieved a speedup with a similar 53.19% acceptance
+rate. This is consistent with the draft becoming less expensive relative to
+the target, although no profiler breakdown has isolated that cause. Absolute
+speed and output quality also change when switching target models. The two
+model pairs use their own matched baselines and different memory budgets:
+0.55 for the 1.5B target and 0.70 for the 3B target.
+
+The earlier 20-question preflight measured:
 
 | Mode | Tokens/sec | Mean latency (s) | Mean output tokens | Mean acceptance length | Acceptance rate | Accuracy |
 | --- | ---: | ---: | ---: | ---: | ---: | ---: |
 | 3B sampled baseline | 39.78 | 4.962 | 197.4 | n/a | n/a | 65% (13/20) |
 | 3B sampled specdec | 51.58 | 3.358 | 173.2 | 3.587 | 51.74% | 80% (16/20) |
 
-The measured throughput ratio was 1.30x. This is a speedup against the same 3B
-target's baseline, not a comparison of absolute speed across target sizes.
-The small sampled accuracy difference does not establish a quality improvement.
-The committed experiment profiles now use 200 questions for confirmation.
+The preflight throughput ratio was 1.30x. Its small sampled accuracy difference
+does not establish a quality improvement. The committed experiment profiles
+use 200 questions for the full comparison.
 Both sizes write separate result histories: the 3B pair uses
 `results/target3b_sample/results.json`. Reproduce the 20-question preflight from
 the activated GPU shell using copies:
@@ -463,11 +485,29 @@ python run.py eval --config config/experiments/baseline_sample_3b.json --outputs
 python run.py eval --config config/experiments/specdec_sample_3b.json --outputs results/target3b_sample/specdec-200.json
 ```
 
-The initial full confirmation was interrupted when the shared checkout switched
-from `gpu-validation` to `main` between child processes. Its completed baseline
-timing remains in the append-only history. The matched confirmation is being
-rerun from an isolated worktree of checkpoint `c9c3cac`, with source/config
-checksums recorded in `results/target3b_sample/source-manifest.json`.
+The final audit recomputed accuracy from all saved answers, verified alignment
+with the original 200 GSM8K questions, checked shared configs and metric ranges,
+and matched the latest completed history rows to their output archives. The
+two numeric sanity-check flags were valid marked final answers on inspection;
+no teammate-owned reward logic was changed. All 200 sampled strings differed
+between modes, which is allowed. A historical interrupted baseline entry remains
+in the append-only history; the table and plots use the latest completed pair.
+
+`results/target3b_sample/summary-200.json` stores the audited measurements and
+source hashes. `baseline-200.json` and `specdec-200.json` retain each mode's full
+answers; `eval-200.json` combines those archives. Source/config checksums for
+checkpoint `c9c3cac` are in `source-manifest.json`. The environment snapshot
+records the 3B model revision `aa8e72537993ba99e69dfaafa59ed015b17504d1` and the
+unchanged package versions. Results are saved in the main project folder.
+
+The visually checked `results/target3b_sample/comparison-200.png` shows the 3B
+pair, and `results/target3b_sample/speedup-by-target.png` compares the measured
+sampling speedup for each target against its own baseline. Both use real
+benchmark records. To plot the 3B profile's own result history:
+
+```bash
+MPLBACKEND=Agg python -c "from src.metrics import plot_comparison; plot_comparison('results/target3b_sample/results.json', 'results/target3b_sample/comparison-200.png')"
+```
 
 This remains fixed-weight inference and answer scoring. RL would additionally
 use rewards to update the target policy's weights and repeat rollout generation;

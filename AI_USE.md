@@ -44,12 +44,21 @@ and metrics logic was retained.
 Verification includes 75 passing CPU tests, a real vLLM draft-model smoke test,
 exact greedy output comparisons, and matched 20-question greedy and sampled
 GSM8K runs. Full 200-question greedy and sampled generation and evaluation runs
-also completed. All greedy outputs matched between modes; each sampled mode's
+also completed for the initial 1.5B target. All greedy outputs matched between
+modes; each sampled mode's
 evaluation reproduced its own generation outputs exactly. Sampled outputs
 were allowed to differ across modes. The saved
 completions were rescored with the existing reward function, and prompt
 alignment and acceptance metric ranges were checked. Plots were generated
 from the real results history and visually inspected.
+
+Codex then tested a 3B target with the same 0.5B draft and five-token draft
+length. A greedy correctness gate passed, and sampled evaluations on 20 and
+200 questions measured a speedup against the 3B baseline. The full run retained
+per-mode completion archives, source/config checksums, audited scores, and an
+environment snapshot. Its artifacts and plots were saved in the main project
+folder; no source data, reward, or metrics logic changes were needed.
+
 The README records the final results and reproducible setup. These experiments
 use one completion per question at concurrency one, without an RL training
 loop. Small sampled accuracy differences do not establish a distributional
