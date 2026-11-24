@@ -31,8 +31,8 @@ def main(argv: list[str] | None = None) -> int:
     target = args.target
     if args.config and target in ("plot", "test"):
         parser.error("--config applies to generation, eval, and check")
-    if args.outputs and target in ("plot", "test", "check"):
-        parser.error("--outputs applies to generation and eval")
+    if args.outputs and target in ("plot", "test"):
+        parser.error("--outputs applies to generation, eval, and check")
     if target == "test":
         return subprocess.run(
             [sys.executable, "-m", "pytest"], cwd=ROOT
@@ -64,7 +64,8 @@ def main(argv: list[str] | None = None) -> int:
         if target == "check":
             with (ROOT / "config/check.json").open() as file:
                 prompts = json.load(file)["prompts"]
-            return int(check_correctness(prompts, config) > 0)
+            report_path = str(ROOT / args.outputs) if args.outputs else None
+            return int(check_correctness(prompts, config, report_path=report_path) > 0)
 
         examples = load_gsm8k("test", config["n_prompts"], config["seed"])
 

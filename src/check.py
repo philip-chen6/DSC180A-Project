@@ -18,7 +18,7 @@ def _generate_to_file(prompts: list[str], config: dict, path: str) -> None:
 
 
 # Compare greedy outputs without holding both model engines in GPU memory.
-def check_correctness(prompts: list[str], config: dict) -> int:
+def check_correctness(prompts: list[str], config: dict, report_path: str | None = None) -> int:
     """Report and return the number of exact baseline/specdec text mismatches.
 
     Require a speculative config and at least one already-formatted prompt.
@@ -30,6 +30,8 @@ def check_correctness(prompts: list[str], config: dict) -> int:
     This is a finite greedy smoke check, not a GSM8K accuracy evaluation or
     proof of distributional equivalence. It performs actual model generation;
     a failed child aborts the check instead of reporting a mismatch count.
+    When report_path is supplied, preserve both exact completion strings and
+    their prompts in JSON, including on a mismatch. Never normalize outputs.
     """
     if not prompts:
         raise ValueError("check_correctness requires at least one prompt.")
@@ -74,4 +76,20 @@ def check_correctness(prompts: list[str], config: dict) -> int:
     )
     if different:
         print(f"Differing prompt numbers (1-based): {different}")
+        for index in different:
+            print(f"Prompt {index} baseline: {outputs['baseline'][index - 1]!r}")
+            print(f"Prompt {index} specdec:  {outputs['specdec'][index - 1]!r}")
+    if report_path is not None:
+        report = Path(report_path)
+        report.parent.mkdir(parents=True, exist_ok=True)
+        report.write_text(json.dumps({
+            "config": config, "n_different": len(different),
+            "comparisons": [
+                {"prompt": prompt, "baseline": baseline, "specdec": specdec,
+                 "match": baseline == specdec}
+                for prompt, baseline, specdec in zip(
+                    prompts, outputs["baseline"], outputs["specdec"], strict=True)
+            ],
+        }, indent=2), encoding="utf-8")
+        print(f"Greedy comparison report saved to {report}")
     return len(different)

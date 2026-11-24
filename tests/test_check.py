@@ -2,6 +2,7 @@
 """CPU tests for comparison logic, not real speculative decoding correctness."""
 
 import os
+import json
 from pathlib import Path
 import subprocess
 import sys
@@ -71,6 +72,17 @@ def test_missing_completion_aborts(fake_processes, monkeypatch, capsys):
     with pytest.raises(RuntimeError, match="wrong number of completions"):
         check.check_correctness(["one"], {"draft_model": "draft"})
     assert "outputs differ" not in capsys.readouterr().out
+
+
+def test_report_retains_exact_mismatch(fake_processes, monkeypatch, tmp_path):
+    monkeypatch.setattr(check, "run_generation", lambda prompts, config: (
+        ["42\n" if "draft_model" in config else "42"], {}))
+    report_path = tmp_path / "reports" / "check.json"
+    assert check.check_correctness(["math"], {"draft_model": "draft"}, str(report_path)) == 1
+    report = json.loads(report_path.read_text())
+    assert report["n_different"] == 1
+    assert report["comparisons"] == [
+        {"prompt": "math", "baseline": "42", "specdec": "42\n", "match": False}]
 
 
 # Explain an absent vLLM environment before trying to launch a GPU worker.
