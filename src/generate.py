@@ -93,6 +93,9 @@ def run_generation(prompts: list[str], config: dict) -> tuple[list[str], dict]:
         "tensor_parallel_size": 1,
         "disable_log_stats": False,
     }
+    for option in ("gpu_memory_utilization", "max_model_len", "max_num_seqs", "enforce_eager"):
+        if option in config:
+            llm_args[option] = config[option]
     if speculative:
         llm_args["speculative_config"] = {
             "model": config["draft_model"],
@@ -136,6 +139,8 @@ def run_generation(prompts: list[str], config: dict) -> tuple[list[str], dict]:
                 acceptance_rate = accepted / proposed
         else:
             print("Acceptance counter names used: none (required counters unavailable).")
+        print(f"Acceptance metrics: mean_acceptance_length={mean_acceptance_length}, "
+              f"acceptance_rate={acceptance_rate}", flush=True)
     else:
         print("Acceptance counter names used: none (baseline).")
 

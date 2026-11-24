@@ -16,8 +16,8 @@ baseline. RL training comes later.
 **Current status:** data loading, prompt formatting, numeric rewards, baseline
 and speculative generation, timing, acceptance metric extraction, result
 saving, plotting, and a greedy output comparison command are implemented.
-Baseline accuracy evaluation is implemented; speculative accuracy evaluation is
-pending. CPU tests pass; validation of the complete pipeline on real GPU
+Accuracy evaluation supports both baseline and speculative configs.
+CPU tests pass; validation of the complete pipeline on real GPU
 hardware is still pending.
 
 | Owner | Files |
@@ -87,10 +87,16 @@ python run.py             # print usage
 python run.py baseline    # baseline config: load, format, generate, save
 python run.py specdec     # speculative config: load, format, generate, save
 python run.py eval        # baseline config: generate, score rewards, save accuracy
+python run.py eval --config config/specdec.json  # speculative accuracy
 python run.py plot        # results/results.json or fake_data.json -> comparison.png
 python run.py test        # run pytest with the current Python interpreter
 python run.py check       # compare greedy baseline/specdec outputs on a GPU
 ```
+
+Use `--config <path>` with `baseline`, `specdec`, `eval`, or `check` to select
+a config copy without changing the originals. Use `--outputs <path>` with
+generation or evaluation to save questions, gold answers, exact completions,
+the config, and run statistics for inspection.
 
 `baseline`, `specdec`, and `eval` require the full dependencies, a model
 download, and a working GPU runtime. They load GSM8K, format prompts, run
@@ -142,8 +148,8 @@ Records contain the config label, prompt count, output tokens per second,
 mean latency in seconds, mean output length, acceptance metrics, and accuracy.
 Baseline acceptance metrics are `null`. The `baseline` and `specdec` targets
 leave accuracy as `null`; the `eval` target runs the baseline configuration and
-fills in its accuracy using the reward function. Evaluating speculative
-accuracy remains future work beyond these requested targets.
+fills in its accuracy using the reward function. Select `config/specdec.json`
+with `eval --config` to evaluate speculative accuracy.
 
 The `plot` target reads `results/results.json` when benchmark results exist.
 If that file is absent, it explicitly falls back to the committed synthetic

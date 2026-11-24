@@ -110,6 +110,14 @@ def test_empty_prompts(fake_vllm):
     module.LLM.assert_not_called()
 
 
+def test_gpu_limits_forwarded(fake_vllm):
+    config, module, _ = fake_vllm
+    limits = {"gpu_memory_utilization": 0.7, "max_model_len": 2048, "max_num_seqs": 1}
+    config.update(limits)
+    generate.run_generation(["one", "two"], config)
+    assert all(module.LLM.call_args.kwargs[key] == value for key, value in limits.items())
+
+
 # Do not publish invalid acceptance rates if a metric resets during a run.
 def test_counter_reset_fails(fake_vllm):
     config, _, llm = fake_vllm
