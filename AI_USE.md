@@ -82,4 +82,14 @@ for baseline and 102.19 for speculative decoding, a 1.294x ratio. Runtime logs
 confirmed torch.compile and CUDA graphs, with batch invariance off for both
 timing arms. Saved completion scores, input alignment, config/source hashes,
 and acceptance ranges were audited, and the real-data plot was inspected.
+The matched 200-question optimized comparison also completed: 81.60 tokens/sec
+baseline versus 101.34 with sampled draft proposals (1.242x). Accuracy was
+157/200 and 154/200 respectively. Saved completions were rescored, question
+alignment and source/config hashes checked, and engine logs verified BF16,
+active compilation and CUDA graphs, with batch invariance off in both timing
+arms. The one heuristic answer-audit flag was a valid final answer and needed
+no scorer change. Exact output archives, the environment snapshot, an audited
+summary, and a real-data plot were retained. This comparison changes both
+execution profile and proposal strategy; it does not isolate their individual
+effects or establish an accuracy change from the single sample.
 

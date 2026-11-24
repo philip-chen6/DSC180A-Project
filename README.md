@@ -31,7 +31,8 @@ use fixed model weights; no RL training has run.
 The matched 3B greedy comparison also completed: 1.59x throughput, 0/200
 differing strings, and 83.5% accuracy in both modes.
 The main sampled profile now uses optimized execution and probabilistic draft
-proposals. Its 20-question preflight passed at 1.29x throughput; all 83 CPU
+proposals. Its 20-question preflight passed at 1.29x throughput and its completed
+200-question comparison measured 81.60 vs 101.34 tokens/sec (1.24x). All 83 CPU
 tests pass. The earlier full results used batch invariance and greedy proposals.
 
 | Owner | Files |
@@ -275,8 +276,7 @@ The strict greedy check is a separate diagnostic; sampled strings can differ
 between modes, and finite accuracy differences do not prove a distributional
 change. This profile changes both proposal strategy and execution settings, so
 comparison against the earlier tables does not isolate either change's effect.
-Optimized execution and probabilistic drafting must be measured before drawing
-new performance conclusions.
+The completed measurements for this profile are recorded below.
 
 ### Optimized sampled preflight (20 questions)
 
@@ -294,15 +294,44 @@ the correctness check separately recorded batch invariance enabled. Source and
 config hashes, exact completions, rescored accuracy, prompt alignment, and
 acceptance ranges were audited. The real-data plot was visually inspected.
 `results/target3b_sample_optimized/summary-20.json` records the measurements;
-the full 200-question confirmation remains pending. This small single-seed
-accuracy difference is not evidence that speculation improves answer quality.
+the full confirmation follows. This small single-seed accuracy difference is
+not evidence that speculation improves answer quality.
 
-The optimized 200-question baseline has also completed: 81.60 tokens/sec,
-2.572 seconds mean latency, 209.855 mean output tokens, and 78.5% accuracy
-(157/200). Its exact completions are retained in
-`results/target3b_sample_optimized/baseline-200.json`. The matching sampled-draft
-speculative evaluation is in progress; this baseline is a completed checkpoint,
-not yet a full performance comparison.
+### Optimized sampled comparison (200 questions)
+
+Both evaluations completed with the same 200 questions and seed, optimized
+execution, BF16 models, and the limits listed above:
+
+| Mode | Tokens/sec | Mean latency (s) | Mean output tokens | Mean acceptance length | Acceptance rate | Accuracy |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: |
+| Optimized baseline | 81.60 | 2.572 | 209.855 | n/a | n/a | 78.5% (157/200) |
+| Optimized specdec, sampled draft | 101.34 | 2.051 | 207.845 | 4.242 | 64.85% | 77.0% (154/200) |
+
+This is 1.242x output-token throughput (24.2% higher) and 20.2% lower mean
+latency. Output lengths differ under sampling, so latency also reflects
+different generated work. Relative throughput gain is similar to the earlier
+batch-invariant, greedy-proposal 3B comparison (1.243x), while both arms now
+deliver about twice that profile's absolute throughput. Execution and proposal
+settings changed together; these results do not isolate the effect of either
+change. The three-answer accuracy gap in one sample does not establish a
+change in the target distribution or model quality. All 200 sampled strings
+differed across modes, which is expected to be allowed under sampling.
+
+Saved configs, source hashes, model revisions, matching questions and gold
+answers, independently recomputed rewards, metric ranges, and the actual
+runtime logs were checked. Both timing arms recorded `VLLM_BATCH_INVARIANT=0`,
+`CompilationMode.VLLM_COMPILE`, CUDA graphs, BF16, and no quantization. One
+answer-parser audit flag was inspected: question 151 correctly ended with
+`$36 / 18 hours = #### 2`; the existing scorer credited the correct final 2.
+No data, reward, or metrics code changes were needed.
+
+Artifacts are in `results/target3b_sample_optimized/`: `baseline-200.json`,
+`specdec-200.json`, `summary-200.json`, `environment.json`,
+`source-manifest.json`, `answer-audit-200.json`, and the visually inspected
+`comparison-200.png`. The plot uses a frozen input derived from the real
+results history. Package pins and model revisions are unchanged from the
+tested 3B setup. These remain fixed-policy inference measurements at
+concurrency one; RL training and batched rollouts remain future work.
 
 ## Running each target
 
