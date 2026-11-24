@@ -22,8 +22,8 @@ comparison passes with 0/3 differences in two consecutive batch-invariant runs.
 The matched 20-prompt greedy and sampled GPU preflights passed. Clean full
 200-prompt greedy generation and evaluation runs completed with 0/200
 exact-string differences and 71.5% accuracy in both modes. Plots were generated
-from real results. Sampling was measured on 20 prompts; 200-prompt sampled runs
-have not been collected.
+from real results. Sampling was measured on 20 prompts; the full 200-prompt
+sampled generation and evaluation suite is now running with the same settings.
 
 | Owner | Files |
 | --- | --- |
@@ -370,6 +370,24 @@ python run.py eval --outputs results/idle-eval-baseline-200.json
 python run.py eval --config config/specdec.json --outputs results/idle-eval-specdec-200.json
 MPLBACKEND=Agg python run.py plot
 ```
+
+### Full sampled GPU suite (200 prompts)
+
+The full sampled suite is in progress on the same 200 questions as the greedy
+runs. It retains temperature 1.0, top_p 1.0, seed 0, the 512-token output limit,
+2,048-token context, 0.55 memory budget, and batch-invariant execution. Run it
+from the activated Ubuntu GPU environment:
+
+```bash
+python run.py baseline_sample --outputs results/idle-baseline-sample-200.json
+python run.py specdec_sample --outputs results/idle-specdec-sample-200.json
+python run.py eval_sample --outputs results/idle-eval-sample-200.json
+```
+
+The evaluation runs both sampled modes sequentially and records accuracy in
+`results/results.json`; its output archive retains both complete sets of
+responses. Final results will be audited against the existing 200-prompt greedy
+archives before updating the comparison plot.
 
 ### Idle-GPU greedy and sampled comparison (20 prompts)
 
