@@ -31,9 +31,11 @@ use fixed model weights; no RL training has run.
 The matched 3B greedy comparison also completed: 1.59x throughput, 0/200
 differing strings, and 83.5% accuracy in both modes.
 The main sampled profile now uses optimized execution and probabilistic draft
-proposals. Its 20-question preflight passed at 1.29x throughput and its completed
-200-question comparison measured 81.60 vs 101.34 tokens/sec (1.24x). All 83 CPU
-tests pass. The earlier full results used batch invariance and greedy proposals.
+proposals. The original five-token 200-question comparison measured 81.60 vs
+101.34 tokens/sec (1.24x). A controlled draft-length sweep then selected two
+tokens and confirmed 118.87 tokens/sec on 200 questions (1.46x baseline).
+All 83 CPU tests passed on the merged `main` branch. The earlier full results
+used batch invariance and greedy proposals.
 
 | Owner | Files |
 | --- | --- |
@@ -249,14 +251,21 @@ top_p 1.0; the speculative arm also samples its draft proposals using
 proposal and correction algorithm, rather than vLLM's greedy-proposal default.
 See [vLLM's proposal options](https://docs.vllm.ai/en/v0.32.0/api/vllm/config/speculative/#vllm.config.speculative.SpeculativeConfig.draft_sample_method).
 
-The matched configs are `config/experiments/baseline_sample_3b_optimized.json`
+The recommended draft length is now **2**, following the controlled sweep and
+200-question confirmation below. Use
+`config/experiments/specdec_sample_3b_optimized_k2.json` with the optimized
+baseline; the commands at the end of the sweep section reproduce that pair.
+The original five-token profile remains available as a measured reference.
+
+The matched five-token reference configs are `config/experiments/baseline_sample_3b_optimized.json`
 and `config/experiments/specdec_sample_3b_optimized.json`: 200 questions, seed 0,
 512 output tokens, 2,048 context tokens, concurrency one, a 0.7 memory budget,
 and five draft tokens for speculation. `enforce_eager=false` leaves compilation
 and CUDA graph optimizations available. Existing configs and historical results
 are retained; this profile writes to `results/target3b_sample_optimized/`.
 
-From the Ubuntu repo root with the GPU venv activated:
+To reproduce the five-token reference from the Ubuntu repo root with the GPU
+venv activated:
 
 ```bash
 export VLLM_BATCH_INVARIANT=0
@@ -278,9 +287,9 @@ change. This profile changes both proposal strategy and execution settings, so
 comparison against the earlier tables does not isolate either change's effect.
 The completed measurements for this profile are recorded below.
 
-### Optimized sampled preflight (20 questions)
+### Optimized sampled preflight (20 questions, five-token reference)
 
-The recommended profile passed its strict greedy GPU check with 0/3 differing
+The five-token profile passed its strict greedy GPU check with 0/3 differing
 strings, followed by matched sampled evaluations on 20 questions:
 
 | Mode | Tokens/sec | Mean latency (s) | Mean acceptance length | Acceptance rate | Accuracy |
@@ -297,7 +306,7 @@ acceptance ranges were audited. The real-data plot was visually inspected.
 the full confirmation follows. This small single-seed accuracy difference is
 not evidence that speculation improves answer quality.
 
-### Optimized sampled comparison (200 questions)
+### Optimized sampled comparison (200 questions, five-token reference)
 
 Both evaluations completed with the same 200 questions and seed, optimized
 execution, BF16 models, and the limits listed above:
@@ -367,8 +376,8 @@ lengths are fresh evaluations:
 
 Length 2 led by 12.5% over length 5, meeting the exploratory 5% improvement
 screen for a full confirmation. It was selected by throughput, not its sampled
-accuracy. Its strict greedy check and 200-question evaluation are the next
-gates; five tokens remains the documented main profile until those complete.
+accuracy. It then passed the strict greedy check with 0/3 differing strings
+and completed the 200-question confirmation below.
 These are single-seed measurements with archived references, not fresh
 interleaved repeats or proof of a global optimum. All saved scores, inputs,
 runtime flags, metric ranges, and source/config compatibility were checked.
@@ -377,10 +386,60 @@ the archived length-5 response. No teammate-owned logic was changed.
 `results/target3b_sample_draft_length/summary-20.json` records the table and
 source provenance; `comparison-20.png` is the visually inspected real-data plot.
 
-Example full evaluation from the GPU environment with batch invariance off:
+The completed 200-question confirmation compared against the same preserved
+optimized baseline and length-5 archives:
+
+| Mode | Tokens/sec | Speedup over baseline | Mean latency (s) | Mean output tokens | Mean acceptance length | Acceptance rate | Accuracy |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
+| Baseline (reference) | 81.60 | 1.000x | 2.572 | 209.855 | n/a | n/a | 78.5% (157/200) |
+| Specdec, length 5 (reference) | 101.34 | 1.242x | 2.051 | 207.845 | 4.242 | 64.85% | 77.0% (154/200) |
+| Specdec, length 2 | 118.87 | 1.457x | 1.787 | 212.425 | 2.603 | 80.14% | 80.0% (160/200) |
+
+Length 2 delivered 17.3% more tokens/sec than length 5 and 45.7% more than
+target-only decoding. Mean latency was 30.5% below baseline, with different
+sampled output lengths as shown. This supports using two draft tokens for
+the current model pair, hardware, and concurrency-one workload. It does not
+establish a global optimum, statistical confidence from repeated timings,
+or an accuracy gain. Baseline and length 5 are archived, source/config-matched
+references rather than freshly interleaved repeats. All model, sampling,
+memory, and execution settings stayed fixed; only draft length changed.
+
+The completed archives were independently rescored and checked for identical
+questions and gold answers, source/config hashes, finite timing values,
+acceptance ranges, BF16 execution, active compilation and CUDA graphs, and
+batch invariance off. There were no new answer-audit flags in the length-2
+outputs; the only flag across the comparison was the valid archived length-5
+answer already inspected above. No data, reward, or metrics logic changed.
+
+`results/target3b_sample_draft_length/summary-200.json` records the audited
+comparison. The new raw archive is `k2/eval-200.json`, and its greedy check is
+`k2/greedy-check.json`. Both `comparison-20.png` and `comparison-200.png` were
+generated from real saved results and visually inspected. Source compatibility
+checks account for config line endings changed by the Windows fast-forward;
+there were no computational changes to the reused reference setup.
+
+To reproduce the recommended pair from the GPU environment, reuse a matching
+baseline archive if available; otherwise run the baseline command once:
 
 ```bash
+export VLLM_BATCH_INVARIANT=0
+source scripts/activate-gpu.sh
+python run.py check --config config/experiments/specdec_sample_3b_optimized_k2.json --outputs results/target3b_sample_draft_length/k2/greedy-check.json
+python run.py eval --config config/experiments/baseline_sample_3b_optimized.json --outputs results/target3b_sample_optimized/baseline-200.json
 python run.py eval --config config/experiments/specdec_sample_3b_optimized_k2.json --outputs results/target3b_sample_draft_length/k2/eval-200.json
+MPLBACKEND=Agg python - <<'PY'
+import json
+from pathlib import Path
+from src.metrics import plot_comparison
+output = Path('results/target3b_sample_draft_length')
+paths = (Path('results/target3b_sample_optimized/baseline-200.json'),
+         output / 'k2/eval-200.json')
+rows = [json.loads(path.read_text())['stats'] for path in paths]
+rows[1] = dict(rows[1], config='specdec_sample_k2')
+plot_input = output / 'recommended-plot-input-200.json'
+plot_input.write_text(json.dumps(rows, indent=2))
+plot_comparison(str(plot_input), str(output / 'recommended-comparison-200.png'))
+PY
 ```
 
 ## Running each target

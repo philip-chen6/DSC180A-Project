@@ -104,4 +104,16 @@ All preflight archives were rescored and checked for matching inputs,
 runtime settings, metric ranges, and source hashes. The real-data sweep plot
 was visually inspected. These preflights are single-seed measurements and do
 not establish an accuracy improvement or a global optimal draft length.
+Length 2 then passed the strict GPU greedy check with 0/3 differences and
+completed a 200-question sampled confirmation at 118.87 tokens/sec, versus
+81.60 for the archived matched baseline and 101.34 for the length-5 reference.
+The resulting throughput ratios were 1.457x baseline and 1.173x length 5.
+Accuracy was 160/200, compared with 157/200 and 154/200 for those references.
+Scores, inputs, source/config hashes, compilation/CUDA graph execution,
+precision, and acceptance metrics were audited. The length-2 output archive
+introduced no heuristic answer-audit flags. The README recommends two draft
+tokens for this measured workload while retaining all reference profiles and
+their provenance. This remains fixed-model inference at concurrency one;
+the comparison uses archived references and does not claim repeated-timing
+confidence, a global optimum, or an accuracy improvement.
 
