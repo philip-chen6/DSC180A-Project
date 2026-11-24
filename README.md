@@ -19,7 +19,7 @@ saving, plotting, and a greedy output comparison command are implemented.
 Accuracy evaluation supports both baseline and speculative configs.
 All 63 CPU tests and a real RTX 5070 vLLM smoke test pass. The GPU greedy
 comparison passes with 0/3 differences in two consecutive batch-invariant runs.
-Small and full GSM8K benchmark validation is in progress.
+The 20-prompt GSM8K preflight passed; full 200-prompt runs are in progress.
 
 | Owner | Files |
 | --- | --- |
@@ -263,6 +263,41 @@ The observed mismatch count and exact environment are recorded in the tested
 GPU setup above.
 
 ## Results
+
+### GPU preflight (20 prompts)
+
+Both modes and both `eval` reruns produced identical completion strings for all
+20 questions. The final evaluation records in `results/results.json` are:
+
+| Mode | Tokens/sec | Mean latency (s) | Mean acceptance length | Acceptance rate | Accuracy |
+| --- | ---: | ---: | ---: | ---: | ---: |
+| Baseline | 66.24 | 2.461 | n/a | n/a | 65% (13/20) |
+| Speculative | 70.18 | 2.323 | 4.653 | 73.06% | 65% (13/20) |
+
+These are real RTX 5070 measurements with `VLLM_BATCH_INVARIANT=1`. The
+generation-only preflight measured 66.03 and 69.90 tokens/sec respectively.
+The accuracy scores were checked against the saved completions, including
+manual inspection of responses that did not follow the requested `####` format.
+No teammate-owned data, reward, or metrics logic was changed.
+
+Create the preflight configs without changing the originals, from the Ubuntu
+repo root after activating the GPU environment:
+
+```bash
+mkdir -p .cache/gpu-validation
+python - <<'PY'
+import json
+from pathlib import Path
+for mode in ('baseline', 'specdec'):
+    config = json.loads(Path(f'config/{mode}.json').read_text())
+    config['n_prompts'] = 20
+    Path(f'.cache/gpu-validation/{mode}-20.json').write_text(json.dumps(config, indent=2))
+PY
+python run.py baseline --config .cache/gpu-validation/baseline-20.json --outputs results/small-baseline.json
+python run.py specdec --config .cache/gpu-validation/specdec-20.json --outputs results/small-specdec.json
+python run.py eval --config .cache/gpu-validation/baseline-20.json --outputs results/small-eval-baseline.json
+python run.py eval --config .cache/gpu-validation/specdec-20.json --outputs results/small-eval-specdec.json
+```
 
 Benchmark records are appended to the JSON list at
 `results/results.json`, as configured by `results_path`. The full record schema
