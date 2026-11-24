@@ -297,6 +297,13 @@ acceptance ranges were audited. The real-data plot was visually inspected.
 the full 200-question confirmation remains pending. This small single-seed
 accuracy difference is not evidence that speculation improves answer quality.
 
+The optimized 200-question baseline has also completed: 81.60 tokens/sec,
+2.572 seconds mean latency, 209.855 mean output tokens, and 78.5% accuracy
+(157/200). Its exact completions are retained in
+`results/target3b_sample_optimized/baseline-200.json`. The matching sampled-draft
+speculative evaluation is in progress; this baseline is a completed checkpoint,
+not yet a full performance comparison.
+
 ## Running each target
 
 ```bash
