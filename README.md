@@ -333,6 +333,31 @@ results history. Package pins and model revisions are unchanged from the
 tested 3B setup. These remain fixed-policy inference measurements at
 concurrency one; RL training and batched rollouts remain future work.
 
+### Sampled draft-length sweep
+
+The next controlled experiment varies only `num_speculative_tokens` over
+1, 2, 3, 5, and 8 using the optimized BF16 3B/0.5B sampled profile. The existing
+five-token profile is the reference; the added configs are
+`config/experiments/specdec_sample_3b_optimized_k{1,2,3,8}.json`.
+All retain 200 questions and the same seed, target/draft sampling, context,
+output limit, concurrency, and memory budget. Each length writes to its own
+results history under `results/target3b_sample_draft_length/k<length>/` so
+the shared `specdec_sample` label cannot collapse different lengths in a plot.
+
+First evaluate copies with `n_prompts=20` on the same questions as the saved
+optimized baseline and length-5 preflight. Reuse those exact archived references
+after checking config/source compatibility. Select by output-token throughput,
+then confirm a clear improvement on 200 questions; do not choose a draft length
+by its sampled accuracy on a small preflight. Acceptance rate alone is also
+insufficient: a longer draft can accept more tokens per verification while
+costing more draft time. Completed measurements will be recorded here.
+
+Example full evaluation from the GPU environment with batch invariance off:
+
+```bash
+python run.py eval --config config/experiments/specdec_sample_3b_optimized_k3.json --outputs results/target3b_sample_draft_length/k3/eval-200.json
+```
+
 ## Running each target
 
 ```bash
