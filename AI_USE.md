@@ -76,4 +76,10 @@ sampling, and updated paired evaluation and correctness config filtering.
 All 83 CPU tests passed, including proposal forwarding, sampled paired
 evaluation, and restoration of the benchmark environment after `check`.
 Earlier GPU results retain their batch-invariant, greedy-proposal provenance.
+The new 3B/0.5B BF16 profile passed its GPU greedy gate (0/3 differences) and
+optimized 20-question sampled evaluations. Throughput was 79.00 tokens/sec
+for baseline and 102.19 for speculative decoding, a 1.294x ratio. Runtime logs
+confirmed torch.compile and CUDA graphs, with batch invariance off for both
+timing arms. Saved completion scores, input alignment, config/source hashes,
+and acceptance ranges were audited, and the real-data plot was inspected.
 

@@ -30,6 +30,9 @@ and 1.24x in the completed 200-question confirmation. All experiments so far
 use fixed model weights; no RL training has run.
 The matched 3B greedy comparison also completed: 1.59x throughput, 0/200
 differing strings, and 83.5% accuracy in both modes.
+The main sampled profile now uses optimized execution and probabilistic draft
+proposals. Its 20-question preflight passed at 1.29x throughput; all 83 CPU
+tests pass. The earlier full results used batch invariance and greedy proposals.
 
 | Owner | Files |
 | --- | --- |
@@ -274,6 +277,25 @@ change. This profile changes both proposal strategy and execution settings, so
 comparison against the earlier tables does not isolate either change's effect.
 Optimized execution and probabilistic drafting must be measured before drawing
 new performance conclusions.
+
+### Optimized sampled preflight (20 questions)
+
+The recommended profile passed its strict greedy GPU check with 0/3 differing
+strings, followed by matched sampled evaluations on 20 questions:
+
+| Mode | Tokens/sec | Mean latency (s) | Mean acceptance length | Acceptance rate | Accuracy |
+| --- | ---: | ---: | ---: | ---: | ---: |
+| Optimized baseline | 79.00 | 2.355 | n/a | n/a | 75% (15/20) |
+| Optimized specdec, sampled draft | 102.19 | 1.702 | 4.186 | 63.72% | 85% (17/20) |
+
+The measured throughput ratio was 1.294x. Both timing runs recorded
+`VLLM_BATCH_INVARIANT=0`, BF16 weights, and active torch.compile and CUDA graphs;
+the correctness check separately recorded batch invariance enabled. Source and
+config hashes, exact completions, rescored accuracy, prompt alignment, and
+acceptance ranges were audited. The real-data plot was visually inspected.
+`results/target3b_sample_optimized/summary-20.json` records the measurements;
+the full 200-question confirmation remains pending. This small single-seed
+accuracy difference is not evidence that speculation improves answer quality.
 
 ## Running each target
 
