@@ -20,7 +20,9 @@ Accuracy evaluation supports both baseline and speculative configs.
 All 75 CPU tests and a real RTX 5070 vLLM smoke test pass. The GPU greedy
 comparison passes with 0/3 differences in two consecutive batch-invariant runs.
 The matched 20-prompt greedy and sampled GPU preflights passed. Clean full
-200-prompt greedy generation/evaluation runs are in progress with Valorant closed.
+200-prompt greedy generation runs completed with 0/200 exact-string differences
+and 71.5% accuracy in both modes. Separate accuracy evaluation reruns are in
+progress with Valorant closed.
 
 | Owner | Files |
 | --- | --- |
@@ -324,6 +326,23 @@ The observed mismatch count and exact environment are recorded in the tested
 GPU setup above.
 
 ## Results
+
+### Idle-GPU full greedy generation (200 prompts)
+
+The original 200-prompt configs completed with the shared 0.55 memory budget
+and `VLLM_BATCH_INVARIANT=1`. The generation-only measurements were:
+
+| Mode | Tokens/sec | Mean latency (s) | Mean acceptance length | Acceptance rate | Accuracy from saved answers |
+| --- | ---: | ---: | ---: | ---: | ---: |
+| `baseline` | 65.36 | 3.021 | n/a | n/a | 71.5% (143/200) |
+| `specdec` | 73.76 | 2.677 | 4.701 | 74.02% | 71.5% (143/200) |
+
+All 200 completion strings matched exactly between modes. The measured
+throughput ratio was 1.13x. Generation-only result records leave `accuracy`
+null; the accuracy values above were recomputed with `reward()` from
+`results/idle-baseline-200.json` and `results/idle-specdec-200.json`.
+Separate `eval` reruns are in progress to save accuracy directly in the
+append-only result history.
 
 ### Idle-GPU greedy and sampled comparison (20 prompts)
 
