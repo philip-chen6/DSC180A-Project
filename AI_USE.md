@@ -93,3 +93,15 @@ summary, and a real-data plot were retained. This comparison changes both
 execution profile and proposal strategy; it does not isolate their individual
 effects or establish an accuracy change from the single sample.
 
+At Philip's request, Codex merged the 31 GPU validation commits into local
+`main` by fast-forward; all 83 CPU tests passed on `main`, and nothing was
+pushed. It then resumed the requested sampled draft-length sweep with the
+same optimized BF16 models and decoding settings. Config copies tested
+lengths 1, 2, 3, and 8 on 20 questions, reusing source/config-matched archived
+baseline and length-5 references. Length 2 led at 114.92 tokens/sec versus
+102.19 for length 5, and was selected by throughput for a full confirmation.
+All preflight archives were rescored and checked for matching inputs,
+runtime settings, metric ranges, and source hashes. The real-data sweep plot
+was visually inspected. These preflights are single-seed measurements and do
+not establish an accuracy improvement or a global optimal draft length.
+

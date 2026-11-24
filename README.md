@@ -335,7 +335,7 @@ concurrency one; RL training and batched rollouts remain future work.
 
 ### Sampled draft-length sweep
 
-The next controlled experiment varies only `num_speculative_tokens` over
+The controlled experiment varies only `num_speculative_tokens` over
 1, 2, 3, 5, and 8 using the optimized BF16 3B/0.5B sampled profile. The existing
 five-token profile is the reference; the added configs are
 `config/experiments/specdec_sample_3b_optimized_k{1,2,3,8}.json`.
@@ -350,12 +350,37 @@ after checking config/source compatibility. Select by output-token throughput,
 then confirm a clear improvement on 200 questions; do not choose a draft length
 by its sampled accuracy on a small preflight. Acceptance rate alone is also
 insufficient: a longer draft can accept more tokens per verification while
-costing more draft time. Completed measurements will be recorded here.
+costing more draft time.
+
+The 20-question sweep completed on `main`, after merging all GPU validation
+commits. The source/config-matched archived baseline measured 79.00 tokens/sec
+and 75% accuracy. Length 5 reuses its matched archived preflight; the other
+lengths are fresh evaluations:
+
+| Draft length | Tokens/sec | Speedup over baseline | Mean latency (s) | Mean acceptance length | Acceptance rate | Accuracy |
+| ---: | ---: | ---: | ---: | ---: | ---: | ---: |
+| 1 | 103.41 | 1.309x | 1.625 | 1.843 | 84.34% | 80% |
+| 2 | 114.92 | 1.455x | 1.600 | 2.603 | 80.15% | 90% |
+| 3 | 104.03 | 1.317x | 1.651 | 3.145 | 71.51% | 80% |
+| 5 (reference) | 102.19 | 1.294x | 1.702 | 4.186 | 63.72% | 85% |
+| 8 | 84.32 | 1.067x | 2.157 | 5.325 | 54.06% | 85% |
+
+Length 2 led by 12.5% over length 5, meeting the exploratory 5% improvement
+screen for a full confirmation. It was selected by throughput, not its sampled
+accuracy. Its strict greedy check and 200-question evaluation are the next
+gates; five tokens remains the documented main profile until those complete.
+These are single-seed measurements with archived references, not fresh
+interleaved repeats or proof of a global optimum. All saved scores, inputs,
+runtime flags, metric ranges, and source/config compatibility were checked.
+The one answer-audit flag was the already verified valid final answer 2 in
+the archived length-5 response. No teammate-owned logic was changed.
+`results/target3b_sample_draft_length/summary-20.json` records the table and
+source provenance; `comparison-20.png` is the visually inspected real-data plot.
 
 Example full evaluation from the GPU environment with batch invariance off:
 
 ```bash
-python run.py eval --config config/experiments/specdec_sample_3b_optimized_k3.json --outputs results/target3b_sample_draft_length/k3/eval-200.json
+python run.py eval --config config/experiments/specdec_sample_3b_optimized_k2.json --outputs results/target3b_sample_draft_length/k2/eval-200.json
 ```
 
 ## Running each target
