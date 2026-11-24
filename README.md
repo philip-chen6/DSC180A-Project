@@ -22,8 +22,8 @@ comparison passes with 0/3 differences in two consecutive batch-invariant runs.
 The matched 20-prompt greedy and sampled GPU preflights passed. Clean full
 200-prompt greedy generation and evaluation runs completed with 0/200
 exact-string differences and 71.5% accuracy in both modes. Plots were generated
-from real results. Sampling was measured on 20 prompts; the full 200-prompt
-sampled generation and evaluation suite is now running with the same settings.
+from real results. All four modes now have matched 200-prompt generation and
+evaluation results, including sampling at temperature 1.0 and top_p 1.0.
 
 | Owner | Files |
 | --- | --- |
@@ -335,28 +335,36 @@ GPU setup above.
 
 ## Results
 
-### Idle-GPU full greedy comparison (200 prompts)
+### Idle-GPU full greedy and sampled comparison (200 prompts)
 
-The original 200-prompt configs completed with the shared 0.55 memory budget
-and `VLLM_BATCH_INVARIANT=1`, with Valorant closed. The final evaluation records
-in `results/results.json` were:
+All four original 200-prompt configs completed on the same questions with the
+shared 0.55 memory budget and `VLLM_BATCH_INVARIANT=1`, with Valorant closed.
+The final evaluation records in `results/results.json` were:
 
-| Mode | Tokens/sec | Mean latency (s) | Mean acceptance length | Acceptance rate | Accuracy |
-| --- | ---: | ---: | ---: | ---: | ---: |
-| `baseline` | 65.80 | 3.001 | n/a | n/a | 71.5% (143/200) |
-| `specdec` | 73.45 | 2.689 | 4.701 | 74.02% | 71.5% (143/200) |
+| Mode | Temperature | Tokens/sec | Mean latency (s) | Mean output tokens | Mean acceptance length | Acceptance rate | Accuracy |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
+| `baseline` | 0 | 65.80 | 3.001 | 197.470 | n/a | n/a | 71.5% (143/200) |
+| `specdec` | 0 | 73.45 | 2.689 | 197.470 | 4.701 | 74.02% | 71.5% (143/200) |
+| `baseline_sample` | 1 | 69.43 | 2.550 | 177.035 | n/a | n/a | 57% (114/200) |
+| `specdec_sample` | 1 | 56.51 | 3.036 | 171.580 | 3.610 | 52.20% | 52.5% (105/200) |
 
-All 200 completion strings matched exactly between modes, and each evaluation
-rerun reproduced its generation-only outputs exactly. Both modes averaged
-197.47 output tokens. The evaluation throughput ratio was 1.12x, with 10.4%
-lower mean latency. The separate generation-only runs measured 65.36 and 73.76
-tokens/sec (1.13x), respectively. These are single-seed, concurrency-one
-measurements using the reproducible kernel setting described above.
+All 200 greedy completion strings matched exactly between baseline and
+speculative modes. Every mode's evaluation rerun reproduced its generation-only
+outputs exactly. Greedy speculation achieved 1.12x throughput, with 10.4% lower
+mean latency. Sampled speculation achieved 0.81x throughput (18.6% lower), with
+19.1% higher mean latency. Sampled output lengths differed, so latency also
+reflects different amounts of generated work. These are single-seed,
+concurrency-one measurements using the reproducible kernel setting above.
+
+The separate greedy generation-only runs measured 65.36 and 73.76 tokens/sec
+(1.13x), respectively. Sampled generation-only runs measured 70.31 and 56.85
+tokens/sec (0.81x), with the same accuracy scores as the evaluation reruns.
 
 Accuracy was recomputed from every archived completion with `reward()`.
 Prompt/gold alignment, runtime settings, acceptance ranges, and correspondence
-with the latest 200-prompt result records passed the final audit, saved as
-`results/idle-full-summary.json`. The archives are
+with the latest 200-prompt result records passed the final four-mode audit,
+saved as `results/idle-full-all-modes-summary.json`. The earlier greedy-only
+audit remains in `results/idle-full-summary.json`. The greedy archives are
 `results/idle-baseline-200.json`, `results/idle-specdec-200.json`,
 `results/idle-eval-baseline-200.json`, and `results/idle-eval-specdec-200.json`.
 No teammate-owned data, reward, or metrics logic was changed.
@@ -375,17 +383,10 @@ MPLBACKEND=Agg python run.py plot
 
 Both sampled generation runs completed on the same 200 questions as the greedy
 runs. They retain temperature 1.0, top_p 1.0, seed 0, the 512-token output limit,
-2,048-token context, 0.55 memory budget, and batch-invariant execution. The
-generation-only measurements and independently recomputed scores were:
-
-| Mode | Tokens/sec | Mean latency (s) | Mean acceptance length | Acceptance rate | Accuracy from saved answers |
-| --- | ---: | ---: | ---: | ---: | ---: |
-| `baseline_sample` | 70.31 | 2.518 | n/a | n/a | 57% (114/200) |
-| `specdec_sample` | 56.85 | 3.018 | 3.610 | 52.20% | 52.5% (105/200) |
-
-The measured throughput ratio was 0.81x. The separate accuracy evaluation
-reruns are in progress. The single-seed accuracy gap does not establish a
-distributional change. Run the suite from the activated Ubuntu GPU environment:
+2,048-token context, 0.55 memory budget, and batch-invariant execution. Both
+accuracy evaluation reruns also completed; their final measurements appear
+in the four-mode table above. Run the suite from the activated Ubuntu GPU
+environment:
 
 ```bash
 python run.py baseline_sample --outputs results/idle-baseline-sample-200.json
@@ -395,8 +396,20 @@ python run.py eval_sample --outputs results/idle-eval-sample-200.json
 
 The evaluation runs both sampled modes sequentially and records accuracy in
 `results/results.json`; its output archive retains both complete sets of
-responses. Final results will be audited against the existing 200-prompt greedy
-archives before updating the comparison plot.
+responses. All 200 sampled strings differed between baseline and speculative
+modes, which is allowed under sampling. Within each mode, generation and
+evaluation strings matched exactly. There were 80 questions both modes got
+right, 34 only the baseline got right, 25 only speculation got right, and 61
+both got wrong. The observed nine-answer accuracy gap comes from one seed and
+does not establish a distributional change.
+
+Numeric sanity checks flagged two credited baseline responses; inspection
+confirmed both were valid (a spaced decimal `88. 00` and a boxed `200` followed
+by a reference to five days). No credited speculative response was flagged.
+The full audit confirmed prompt/gold alignment and identical shared settings
+across all four modes. Package versions, model revisions, GPU capability, and
+dataset hashes matched the earlier tested environment; its snapshot is retained
+as `results/gpu-environment-before-sampled-200.json`.
 
 ### Idle-GPU greedy and sampled comparison (20 prompts)
 
@@ -489,10 +502,11 @@ directory in the repo.
 
 The completed GPU suite's `plot` log confirmed
 `Plot input: /mnt/c/Dev/Projects/DSC180A-Project/results/results.json`.
-Because the standard plot selects the latest record per label, its
-`comparison.png` combines 200-prompt greedy rows with 20-prompt sampled rows.
-For matched prompt counts, the additional `results/comparison-20.png` contains
-all four modes and `results/comparison-200.png` contains the full greedy pair.
+The standard plot selects the latest record per label; `comparison.png` now
+contains 200-prompt results for all four modes. The additional
+`results/comparison-20.png` retains the four-mode preflight comparison, and
+`results/comparison-200.png` shows all four full runs with the prompt count
+in its title.
 Their inputs, `results/plot-input-20.json` and `results/plot-input-200.json`,
 were filtered from the real results history and checked against the audited
 summary files. `results/plot-provenance.json` records the source file's SHA256.
