@@ -1,0 +1,14 @@
+{
+  "target_model": "Qwen/Qwen2.5-3B-Instruct",
+  "draft_model": "Qwen/Qwen2.5-0.5B-Instruct",
+  "temperature": 0.0,
+  "top_p": 1.0,
+  "max_tokens": 512,
+  "n_prompts": 200,
+  "seed": 0,
+  "gpu_memory_utilization": 0.7,
+  "max_model_len": 2048,
+  "max_num_seqs": 1,
+  "num_speculative_tokens": 5,
+  "results_path": "results/target3b_greedy/results.json"
+}
