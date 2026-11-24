@@ -32,3 +32,21 @@ ChatGPT helped with LaTeX formatting to insert figures and math.
 ### Code
 AI tools generated substantial portions of the implementation based on the aforementioned prompts and requirements provided by the authors. Subsequent iterations, if any problems were found, were also performed by code agents, held to standards set by authors.
 
+### GPU Validation and Sampled Benchmarks
+
+At Philip's direction, Codex configured Ubuntu under WSL2, installed and pinned
+the venv GPU stack, diagnosed compiler/linker failures, and ran the pipeline on
+the RTX 5070. It added exact-output archives, GPU memory controls, a shared
+batch-invariant execution setting, and sampled benchmark/evaluation targets.
+No NVIDIA driver or system CUDA changes were made. Teammate-owned data, reward,
+and metrics logic was retained.
+
+Verification includes 75 passing CPU tests, a real vLLM draft-model smoke test,
+exact greedy output comparisons, and matched 20-question greedy and sampled
+GSM8K runs. The saved completions were rescored with the existing reward
+function, and prompt alignment and acceptance metric ranges were checked.
+The README records the final results and reproducible setup. These experiments
+use one completion per question at concurrency one, without an RL training
+loop. Small sampled accuracy differences do not establish a distributional
+change, and the heuristic answer parser remains a validation limitation.
+
