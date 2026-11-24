@@ -51,7 +51,7 @@ def test_baseline_measurements(fake_vllm, capsys):
     }
     module.LLM.assert_called_once_with(model="target", seed=0, tensor_parallel_size=1,
                                        disable_log_stats=False)
-    module.SamplingParams.assert_called_once_with(temperature=0.0, max_tokens=512, seed=0, n=1)
+    module.SamplingParams.assert_called_once_with(temperature=0.0, top_p=1.0, max_tokens=512, seed=0, n=1)
     assert [call.args[0] for call in llm.generate.call_args_list] == [["one"], ["two"]]
     assert all(call.kwargs == {"use_tqdm": False} for call in llm.generate.call_args_list)
     llm.get_metrics.assert_not_called()
@@ -72,6 +72,23 @@ def test_speculative_metrics(fake_vllm, capsys):
     assert stats["acceptance_rate"] == pytest.approx(0.6)
     log = capsys.readouterr().out
     assert all(name in log for name in generate.SPEC_COUNTERS)
+
+
+@pytest.mark.parametrize("speculative,label", [(False, "baseline_sample"), (True, "specdec_sample")])
+def test_sampled_parameters_and_label(fake_vllm, speculative, label):
+    config, module, llm = fake_vllm
+    config.update(temperature=1.0, top_p=0.9)
+    if speculative:
+        config.update(draft_model="draft", num_speculative_tokens=5)
+        llm.get_metrics.side_effect = [counters(0, 0, 0), counters(4, 20, 12)]
+    _, stats = generate.run_generation(["one", "two"], config)
+    module.SamplingParams.assert_called_once_with(temperature=1.0, top_p=0.9,
+                                                  max_tokens=512, seed=0, n=1)
+    assert stats["config"] == label
+    assert stats["accuracy"] is None
+    if speculative:
+        assert stats["mean_acceptance_length"] == 4.0
+        assert stats["acceptance_rate"] == pytest.approx(0.6)
 
 
 # Distinguish unavailable metrics and unused speculation from measured rejection.

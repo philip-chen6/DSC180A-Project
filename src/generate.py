@@ -43,13 +43,13 @@ def _spec_counters(llm: Any) -> dict[str, float]:
 def run_generation(prompts: list[str], config: dict) -> tuple[list[str], dict]:
     """Generate one completion per prompt using the supplied JSON config.
 
-    Use target_model, temperature, max_tokens, and seed. If draft_model
+    Use target_model, temperature, top_p (default 1.0), max_tokens, and seed. If draft_model
     is present, enable speculative decoding with num_speculative_tokens;
     otherwise run the baseline. Return completions in input order and a
     statistics record matching this schema:
 
         {
-            "config": "baseline" | "specdec",
+            "config": "baseline" | "specdec" | "baseline_sample" | "specdec_sample",
             "n_prompts": int,
             "tokens_per_sec": float,
             "mean_latency_s": float,
@@ -59,7 +59,8 @@ def run_generation(prompts: list[str], config: dict) -> tuple[list[str], dict]:
             "accuracy": float | null
         }
 
-    Set config from the presence of draft_model and n_prompts from the
+    Set config from the presence of draft_model, appending _sample when
+    temperature is positive, and set n_prompts from the
     actual prompt count. Run one prompt per blocking LLM.generate call.
     Each latency measures wall time around that call, including tokenization,
     prefill, decoding, and output processing, but excluding model initialization
@@ -103,6 +104,7 @@ def run_generation(prompts: list[str], config: dict) -> tuple[list[str], dict]:
     llm = LLM(**llm_args)
     sampling = SamplingParams(
         temperature=config["temperature"],
+        top_p=config.get("top_p", 1.0),
         max_tokens=config["max_tokens"],
         seed=config["seed"],
         n=1,
@@ -146,8 +148,11 @@ def run_generation(prompts: list[str], config: dict) -> tuple[list[str], dict]:
         print("Acceptance counter names used: none (baseline).")
 
     elapsed = sum(latencies)
+    label = "specdec" if speculative else "baseline"
+    if config["temperature"] > 0:
+        label += "_sample"
     stats = {
-        "config": "specdec" if speculative else "baseline",
+        "config": label,
         "n_prompts": len(prompts),
         "tokens_per_sec": sum(output_lengths) / elapsed,
         "mean_latency_s": elapsed / len(prompts),

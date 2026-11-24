@@ -6,6 +6,7 @@ import os
 from pathlib import Path
 import subprocess
 import sys
+from tempfile import TemporaryDirectory
 
 from src.check import check_correctness
 from src.data import format_prompt, load_gsm8k
@@ -15,7 +16,50 @@ from src.reward import reward
 
 
 ROOT = Path(__file__).resolve().parent
-TARGETS = ("baseline", "specdec", "eval", "plot", "test", "check")
+TARGETS = ("baseline", "specdec", "baseline_sample", "specdec_sample",
+           "eval", "eval_sample", "plot", "test", "check")
+
+
+def _evaluate_sampled_pair(baseline_path: Path, specdec_path: Path,
+                           outputs_path: Path | None) -> int:
+    """Score matched sampled configs in separate, sequential GPU processes."""
+    configs = {}
+    for mode, path in (("baseline_sample", baseline_path), ("specdec_sample", specdec_path)):
+        configs[mode] = json.loads(path.read_text(encoding="utf-8"))
+    baseline = configs["baseline_sample"]
+    speculative = configs["specdec_sample"]
+    if "draft_model" in baseline or "draft_model" not in speculative:
+        raise ValueError("eval_sample requires a baseline config and a speculative config")
+    if baseline["temperature"] <= 0 or speculative["temperature"] <= 0:
+        raise ValueError("eval_sample requires positive sampling temperatures")
+    expected_baseline = {key: value for key, value in speculative.items()
+                         if key not in ("draft_model", "num_speculative_tokens")}
+    expected_baseline.setdefault("top_p", 1.0)
+    if dict(baseline, top_p=baseline.get("top_p", 1.0)) != expected_baseline:
+        raise ValueError("Sampled evaluation configs must match except for draft settings")
+
+    records = {}
+    with TemporaryDirectory(prefix="specdec-sample-eval-") as directory:
+        for mode, path in (("baseline_sample", baseline_path), ("specdec_sample", specdec_path)):
+            archive = Path(directory) / f"{mode}.json"
+            print(f"Sampled evaluation: running {mode}", flush=True)
+            result = subprocess.run(
+                [sys.executable, str(ROOT / "run.py"), "eval", "--config", str(path),
+                 "--outputs", str(archive)], cwd=ROOT,
+            )
+            if result.returncode:
+                print(f"{mode} evaluation failed; sampled evaluation aborted.", file=sys.stderr)
+                return result.returncode
+            record = json.loads(archive.read_text(encoding="utf-8"))
+            if record["stats"]["config"] != mode or record["stats"]["accuracy"] is None:
+                raise RuntimeError(f"{mode} did not return a labeled accuracy record")
+            records[mode] = record
+    if outputs_path is not None:
+        outputs_path.parent.mkdir(parents=True, exist_ok=True)
+        outputs_path.write_text(json.dumps({"runs": records}, indent=2), encoding="utf-8")
+    print("Sampled accuracy comparison (finite samples may differ):")
+    print(json.dumps({mode: record["stats"]["accuracy"] for mode, record in records.items()}, indent=2))
+    return 0
 
 
 # Load the selected config and call the corresponding library functions.
@@ -25,11 +69,17 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("target", nargs="?", choices=TARGETS)
     parser.add_argument("--config", type=Path, help="JSON config, relative to the repo root")
     parser.add_argument("--outputs", type=Path, help="Save exact completions and run settings as JSON")
+    parser.add_argument("--baseline-config", type=Path, help="Baseline config for eval_sample")
+    parser.add_argument("--specdec-config", type=Path, help="Speculative config for eval_sample")
     args = parser.parse_args(argv)
     if args.target is None:
         parser.print_help()
         return 0
     target = args.target
+    if target == "eval_sample" and args.config:
+        parser.error("eval_sample uses --baseline-config and --specdec-config")
+    if target != "eval_sample" and (args.baseline_config or args.specdec_config):
+        parser.error("--baseline-config and --specdec-config apply only to eval_sample")
     if args.config and target in ("plot", "test"):
         parser.error("--config applies to generation, eval, and check")
     if args.outputs and target in ("plot", "test"):
@@ -40,6 +90,12 @@ def main(argv: list[str] | None = None) -> int:
         ).returncode
 
     try:
+        if target == "eval_sample":
+            return _evaluate_sampled_pair(
+                ROOT / (args.baseline_config or Path("config/baseline_sample.json")),
+                ROOT / (args.specdec_config or Path("config/specdec_sample.json")),
+                ROOT / args.outputs if args.outputs else None,
+            )
         if target == "plot":
             results_path = ROOT / "results/results.json"
             if not results_path.exists():
@@ -54,14 +110,16 @@ def main(argv: list[str] | None = None) -> int:
             )
             return 0
 
-        config_name = "specdec" if target in ("specdec", "check") else "baseline"
+        config_name = {"check": "specdec", "eval": "baseline"}.get(target, target)
         config_path = ROOT / args.config if args.config else ROOT / "config" / f"{config_name}.json"
         with config_path.open() as file:
             config = json.load(file)
-        if target == "baseline" and "draft_model" in config:
+        if target in ("baseline", "baseline_sample") and "draft_model" in config:
             raise ValueError("baseline requires a config without draft_model")
-        if target == "specdec" and "draft_model" not in config:
+        if target in ("specdec", "specdec_sample") and "draft_model" not in config:
             raise ValueError("specdec requires a config with draft_model")
+        if target in ("baseline_sample", "specdec_sample") and config["temperature"] <= 0:
+            raise ValueError(f"{target} requires a positive sampling temperature")
 
         if target == "check":
             with (ROOT / "config/check.json").open() as file:
