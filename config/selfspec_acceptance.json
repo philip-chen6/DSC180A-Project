@@ -1,0 +1,22 @@
+{
+  "target_model": "Qwen/Qwen2.5-1.5B-Instruct",
+  "adapter_dir": "checkpoints/grpo",
+  "n_prompts": 50,
+  "seed": 0,
+  "temperature": 1.0,
+  "max_tokens": 512,
+  "batch_size": 8,
+  "draft_sampling": "probabilistic",
+  "group_size": 128,
+  "variants": [
+    {"name": "rtn4_live_lora", "quant": "rtn4", "adapter": "live", "cost_key": "awq4_lora"},
+    {"name": "rtn4_no_lora", "quant": "rtn4", "adapter": "none", "cost_key": "awq4"},
+    {"name": "rtn4_refresh_every_100", "quant": "rtn4", "adapter": {"refresh_every": 100}, "cost_key": "awq4_lora"},
+    {"name": "rtn8_live_lora", "quant": "rtn8", "adapter": "live"},
+    {"name": "nf4_live_lora", "quant": "nf4", "adapter": "live"},
+    {"name": "qwen0.5b_fixed", "model": "Qwen/Qwen2.5-0.5B-Instruct", "quant": "none", "adapter": "none", "cost_key": "qwen0.5b"}
+  ],
+  "speedup": {"ks": [1, 2, 3, 5], "cost_ratio_path": "results/selfspec/draft_cost.json"},
+  "results_path": "results/selfspec/acceptance.json",
+  "plot_path": "results/selfspec/acceptance.png"
+}

@@ -50,6 +50,7 @@ under the ignored `results/` and `.cache/` paths.
 | Philip | `src/generate.py`, `src/check.py`, and their tests |
 | Maggie | `src/metrics.py` |
 | Chentao | `src/data.py`, `src/reward.py`, `tests/test_reward.py` |
+| Unassigned | `src/selfspec.py`, `src/train_grpo.py`, `tests/test_selfspec*.py` (self-speculative RL study) |
 
 ## Setup
 
@@ -464,7 +465,13 @@ python run.py eval_sample # generate and score both sampled modes sequentially
 python run.py plot        # results/results.json or fake_data.json -> comparison.png
 python run.py test        # run pytest with the current Python interpreter
 python run.py check       # compare greedy baseline/specdec outputs on a GPU
+python run.py train       # GRPO + LoRA on GSM8K train, saving adapter checkpoints
+python run.py draftcost   # time target and candidate drafts in vLLM -> cost ratio c
+python run.py acceptance  # draft acceptance vs. GRPO step for each draft variant
 ```
+
+The last three targets belong to the self-speculative RL study described in
+[Quantized self-speculative draft](#quantized-self-speculative-draft-for-lora-rl).
 
 Use `--config <path>` with a generation target, `eval`, or `check` to select
 a config copy without changing the originals. Use `--outputs <path>` with
@@ -564,6 +571,104 @@ or zero denominators produce `null`. The installed vLLM 0.32.0 API was validated
 on the RTX 5070: counters were available and acceptance values were numeric.
 The observed mismatch count and exact environment are recorded in the tested
 GPU setup above.
+
+## Quantized self-speculative draft for LoRA RL
+
+### Design
+
+During RL the policy is trained with LoRA: policy = `W + BA`, where `W` is the
+frozen bf16 base and `BA` the adapter. Instead of a separate small draft, the
+draft is a **frozen 4-bit copy of the same base that reuses the live policy
+adapter**: draft = `Q(W) + BA`. The draft follows every policy update for free,
+so draft/target mismatch comes only from quantization error rather than
+growing with training (staleness). Rejection sampling keeps rollouts exactly
+on-policy whatever the draft is; the draft only affects speed.
+
+Whether this is faster depends on two numbers, measured separately:
+
+- **Acceptance `alpha`** (property of the two distributions) - measured by
+  `run.py acceptance` with teacher forcing, no speculative kernels needed.
+- **Draft cost ratio `c`** (draft time per token / target time per token) -
+  measured by `run.py draftcost` on real vLLM 4-bit kernels.
+
+With `k` draft tokens the predicted speedup is
+`[(1 - alpha^(k+1)) / (1 - alpha)] / (k*c + 1)` (`src/selfspec.expected_speedup`).
+A same-architecture 4-bit 1.5B draft keeps all 28 layers and the full LM head,
+so `c` is not 0.25; expect small `k` to be best. The draft also needs its own
+target-shaped KV cache (about 28 KB/token vs. 12 KB/token for the 0.5B draft),
+which reduces the batch size that fits in 12 GB.
+
+### Workflow
+
+```bash
+python run.py train        # config/train_grpo.json -> checkpoints/grpo/checkpoint-<step>
+python run.py draftcost    # config/selfspec_cost.json -> results/selfspec/draft_cost.json
+python run.py acceptance   # config/selfspec_acceptance.json -> results/selfspec/acceptance.{json,png}
+# End-to-end self-speculative serving of one trained policy:
+python run.py check --config config/selfspec_sample.json   # must report 0 differences
+python run.py eval_sample --baseline-config config/selfspec_baseline_sample.json \
+    --specdec-config config/selfspec_sample.json
+```
+
+1. **`train`** (`src/train_grpo.py`): TRL `GRPOTrainer` with a rank-16 LoRA on
+   all attention/MLP projections, the shared numeric reward, and the GSM8K
+   *train* split (evaluation always uses *test*). An adapter checkpoint is
+   saved every `grpo.save_steps` steps. Lower `per_device_train_batch_size` or
+   `max_completion_length` if 12 GB runs out; TRL's `use_vllm` options can
+   speed up generation if memory allows.
+2. **`draftcost`**: runs the target (with the policy adapter) and each candidate
+   draft as standalone `baseline` runs in separate child processes, then saves
+   `c = target tokens/sec / draft tokens/sec`. Drafts with `use_lora` serve the
+   same adapter. Candidates use real 4-bit checkpoints (`Qwen2.5-1.5B-Instruct-AWQ`,
+   `-GPTQ-Int4`), which vLLM runs with Marlin kernels; bitsandbytes NF4 is too
+   slow to be a useful draft. Request times include prefill, so `c` is an
+   end-to-end approximation at concurrency one.
+3. **`acceptance`** (`src/selfspec.py`): for every saved policy checkpoint
+   (plus step 0, the untrained model), sample rollouts from the policy on
+   held-out questions, record policy accuracy, and teacher-force the rollouts
+   through each draft variant. Per token it records `sum_x min(p, q)` for
+   probabilistic proposals (or `p(argmax q)` with `"draft_sampling": "greedy"`;
+   argmax agreement at temperature 0), plus a sequence-bootstrap 95% CI. When
+   `draft_cost.json` exists, variants with a `cost_key` also get predicted
+   speedups for each `k`.
+
+### Draft variants (ablation)
+
+| Variant | Draft | What it isolates |
+| --- | --- | --- |
+| `rtn4_live_lora` | 4-bit base + live policy LoRA | **the proposal**: quantization error only |
+| `rtn4_no_lora` | 4-bit base, no adapter | quantization error + full staleness |
+| `rtn4_refresh_every_100` | 4-bit base + adapter synced every 100 steps | staleness vs. sync interval |
+| `rtn8_live_lora` | 8-bit base + live LoRA | bit-width vs. acceptance |
+| `nf4_live_lora` | bitsandbytes NF4 base + live LoRA (QLoRA-style) | a second 4-bit scheme |
+| `qwen0.5b_fixed` | separate 0.5B model (current setup) | baseline: model gap + staleness |
+
+The gap between `rtn4_live_lora` and `rtn4_no_lora` as the step increases
+measures how much staleness costs, and whether sharing the adapter removes it.
+`rtnN` variants simulate round-to-nearest group-wise quantization (group size
+128, `lm_head` and embeddings left in bf16) by quantizing and then storing
+dequantized bf16 weights: acceptance matches a real RTN kernel, while speed
+does not, which is why `c` comes from vLLM's AWQ/GPTQ kernels instead. AWQ is
+calibrated, so its acceptance should be at least as good as RTN-4.
+
+### Validation status and open questions
+
+- CPU tests cover quantization, acceptance math, checkpoint and refresh logic,
+  config consistency, and target dispatch; a tiny randomly initialized Qwen2
+  model with a PEFT adapter gave the expected ordering (8-bit > 4-bit > 3-bit;
+  removing the adapter lowers acceptance). No GPU run of this study has been
+  done yet.
+- **vLLM draft LoRA:** `lora_adapter` makes vLLM serve the target as the LoRA
+  policy. Whether vLLM 0.32.0 also applies the adapter inside the draft model
+  is not confirmed, and LoRA + speculative decoding has had correctness bugs
+  upstream. Before trusting `selfspec_sample` timings, `check` must report
+  0/N differences with the adapter enabled, and the vLLM `acceptance_rate`
+  should be close to the `rtn4_live_lora` (not `rtn4_no_lora`) prediction. If
+  the draft ignores the adapter, the fallback is to merge the adapter and
+  requantize the draft at each sync (draft becomes `Q(W + BA)` refreshed every
+  N steps, measured by the `refresh_every` variant).
+- The AWQ checkpoint stores fp16 scales while the target runs bf16; confirm
+  that vLLM accepts the pair on SM120.
 
 ## Results
 

@@ -6,7 +6,8 @@ from typing import Any
 import os
 
 
-DRAFT_CONFIG_KEYS = ("draft_model", "num_speculative_tokens", "draft_sample_method")
+DRAFT_CONFIG_KEYS = ("draft_model", "num_speculative_tokens", "draft_sample_method",
+                     "draft_quantization")
 
 
 # Names returned by vLLM's V1 metrics reader (without Prometheus's _total suffix).
@@ -49,8 +50,12 @@ def run_generation(prompts: list[str], config: dict) -> tuple[list[str], dict]:
 
     Use target_model, temperature, top_p (default 1.0), max_tokens, and seed. If draft_model
     is present, enable speculative decoding with num_speculative_tokens and
-    optionally draft_sample_method (vLLM 0.32.0 defaults to greedy proposals);
-    otherwise run the baseline. Return completions in input order and a
+    optionally draft_sample_method (vLLM 0.32.0 defaults to greedy proposals)
+    and draft_quantization (passed to vLLM's speculative_config.quantization;
+    omit it to let vLLM detect AWQ/GPTQ checkpoints); otherwise run the baseline.
+    Optional quantization applies to the target. Optional lora_adapter (a
+    local PEFT adapter folder, e.g. a GRPO checkpoint) serves the target as the
+    LoRA policy, with max_lora_rank (default 16). Return completions in input order and a
     statistics record matching this schema:
 
         {
@@ -99,7 +104,8 @@ def run_generation(prompts: list[str], config: dict) -> tuple[list[str], dict]:
         "tensor_parallel_size": 1,
         "disable_log_stats": False,
     }
-    for option in ("gpu_memory_utilization", "max_model_len", "max_num_seqs", "enforce_eager"):
+    for option in ("gpu_memory_utilization", "max_model_len", "max_num_seqs", "enforce_eager",
+                   "quantization"):
         if option in config:
             llm_args[option] = config[option]
     if speculative:
@@ -109,7 +115,28 @@ def run_generation(prompts: list[str], config: dict) -> tuple[list[str], dict]:
         }
         if "draft_sample_method" in config:
             llm_args["speculative_config"]["draft_sample_method"] = config["draft_sample_method"]
+        if "draft_quantization" in config:
+            llm_args["speculative_config"]["quantization"] = config["draft_quantization"]
         print(f"Draft sampling method: {config.get('draft_sample_method', 'greedy')}", flush=True)
+    generate_kwargs = {"use_tqdm": False}
+    if config.get("lora_adapter"):
+        from vllm.lora.request import LoRARequest
+
+        adapter = os.path.abspath(config["lora_adapter"])
+        if not os.path.isdir(adapter):
+            raise RuntimeError(f"lora_adapter folder not found: {adapter}")
+        llm_args["enable_lora"] = True
+        llm_args["max_lora_rank"] = config.get("max_lora_rank", 16)
+        generate_kwargs["lora_request"] = LoRARequest("policy", 1, adapter)
+        print(f"LoRA policy adapter: {adapter}", flush=True)
+        if speculative:
+            # vLLM attaches the LoRARequest to the target; whether the draft
+            # also runs it is version dependent. Self-speculation needs the
+            # draft to share the adapter for high acceptance, and correctness
+            # needs the target to apply it: validate with `run.py check`.
+            print("Note: verify that the draft shares the LoRA adapter (compare this "
+                  "acceptance_rate with `run.py acceptance`) and that the target applies "
+                  "it (`run.py check` must report 0 differences).", flush=True)
     llm = LLM(**llm_args)
     sampling = SamplingParams(
         temperature=config["temperature"],
@@ -124,7 +151,7 @@ def run_generation(prompts: list[str], config: dict) -> tuple[list[str], dict]:
     output_lengths = []
     for index, prompt in enumerate(prompts, start=1):
         start = perf_counter()
-        outputs = llm.generate([prompt], sampling, use_tqdm=False)
+        outputs = llm.generate([prompt], sampling, **generate_kwargs)
         latencies.append(perf_counter() - start)
         if len(outputs) != 1 or len(outputs[0].outputs) != 1:
             raise RuntimeError("Expected exactly one completion per prompt.")

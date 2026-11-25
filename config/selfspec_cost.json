@@ -1,0 +1,22 @@
+{
+  "target": {
+    "target_model": "Qwen/Qwen2.5-1.5B-Instruct",
+    "temperature": 1.0,
+    "top_p": 1.0,
+    "max_tokens": 512,
+    "n_prompts": 20,
+    "seed": 0,
+    "gpu_memory_utilization": 0.55,
+    "max_model_len": 2048,
+    "max_num_seqs": 1,
+    "max_lora_rank": 16
+  },
+  "lora_adapter": "checkpoints/grpo/checkpoint-200",
+  "drafts": {
+    "awq4_lora": {"model": "Qwen/Qwen2.5-1.5B-Instruct-AWQ", "use_lora": true},
+    "awq4": {"model": "Qwen/Qwen2.5-1.5B-Instruct-AWQ"},
+    "gptq4_lora": {"model": "Qwen/Qwen2.5-1.5B-Instruct-GPTQ-Int4", "use_lora": true},
+    "qwen0.5b": {"model": "Qwen/Qwen2.5-0.5B-Instruct"}
+  },
+  "results_path": "results/selfspec/draft_cost.json"
+}

@@ -1,0 +1,14 @@
+{
+  "target_model": "Qwen/Qwen2.5-1.5B-Instruct",
+  "lora_adapter": "checkpoints/grpo/checkpoint-200",
+  "max_lora_rank": 16,
+  "temperature": 1.0,
+  "top_p": 1.0,
+  "max_tokens": 512,
+  "n_prompts": 200,
+  "seed": 0,
+  "gpu_memory_utilization": 0.6,
+  "max_model_len": 2048,
+  "max_num_seqs": 1,
+  "results_path": "results/selfspec/results.json"
+}
